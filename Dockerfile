@@ -7,10 +7,15 @@
 FROM node:20-alpine AS client-builder
 WORKDIR /app
 
+# Copia manifests dos workspaces e o lockfile sincronizado
 COPY package*.json ./
-COPY client/package*.json ./client/
-RUN npm ci --workspace=client
+COPY client/package.json ./client/
+COPY server/package.json ./server/
 
+# Instala dependências do workspace completo (inclui Vite e plugins)
+RUN npm ci
+
+# Copia código-fonte do cliente e executa o build de produção do Vite
 COPY client ./client
 RUN npm run build -w client
 
@@ -21,8 +26,11 @@ WORKDIR /app
 RUN apk add --no-cache python3 make g++
 
 COPY package*.json ./
-COPY server/package*.json ./server/
-RUN npm ci --workspace=server --omit=dev
+COPY client/package.json ./client/
+COPY server/package.json ./server/
+
+# Instala apenas dependências de produção necessárias para rodar o backend
+RUN npm ci --omit=dev
 
 # ----- Estágio 3: Imagem Final de Produção -----
 FROM node:20-alpine AS runner
@@ -34,7 +42,7 @@ ENV NODE_ENV=production \
     PORT=3000 \
     DATA_DIR=/app/server/data
 
-# Copia dependências compiladas
+# Copia dependências compiladas de produção
 COPY package*.json ./
 COPY --from=server-builder /app/node_modules ./node_modules
 COPY --from=server-builder /app/server/node_modules ./server/node_modules
