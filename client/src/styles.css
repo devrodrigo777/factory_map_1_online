@@ -657,8 +657,15 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
   border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;
   overflow: hidden;
 }
+.dynamic-sync-viewport.high-contrast {
+  background: #090e17; border: 1px solid #23374d; padding: 14px;
+}
+.canvas-white-backer {
+  background: #ffffff; padding: 8px; border-radius: 8px; display: inline-block;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
 .dynamic-sync-canvas {
-  display: block; border-radius: 6px;
+  display: block; border-radius: 4px;
 }
 .sync-corner {
   position: absolute; width: 14px; height: 14px; border-color: #38bdf8; border-style: solid;

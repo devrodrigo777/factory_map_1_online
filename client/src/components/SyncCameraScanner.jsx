@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import jsQR from 'jsqr';
 import Icon from './Icons.jsx';
 
+const SCAN_VIEWPORT_SIZE = 480;
+
 export default function SyncCameraScanner({ isOpen, onClose, onScan }) {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -15,7 +17,7 @@ export default function SyncCameraScanner({ isOpen, onClose, onScan }) {
   const [scanning, setScanning] = useState(false);
   const [success, setSuccess] = useState(false);
 
-  // Inicializa a câmera ao abrir o modal
+  // Inicializa a câmera com configurações otimizadas para leitura rápida de códigos
   useEffect(() => {
     if (!isOpen) return;
 
@@ -30,7 +32,7 @@ export default function SyncCameraScanner({ isOpen, onClose, onScan }) {
     async function startCamera() {
       try {
         if (!navigator.mediaDevices?.getUserMedia) {
-          throw new Error('Seu navegador não suporta captura direta por câmera. Utilize a transferência manual por código.');
+          throw new Error('Navegador sem suporte a acesso direto à câmera. Utilize a opção de copiar/colar código.');
         }
 
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -55,11 +57,11 @@ export default function SyncCameraScanner({ isOpen, onClose, onScan }) {
         }
       } catch (err) {
         if (!active) return;
-        console.error('Falha ao acessar câmera:', err);
+        console.error('Falha ao abrir câmera:', err);
         const msg = err.name === 'NotAllowedError'
-          ? 'Permissão de acesso à câmera negada. Permita o acesso nas configurações do navegador ou use o código manual.'
+          ? 'Permissão de acesso à câmera negada. Permita o uso da câmera nas configurações ou use a colagem manual de código.'
           : err.name === 'NotFoundError'
-            ? 'Nenhuma câmera encontrada neste dispositivo. Utilize o código de sincronização por texto.'
+            ? 'Nenhuma câmera detectada neste aparelho. Utilize a colagem manual de código.'
             : `Não foi possível iniciar a câmera: ${err.message}`;
         setCameraError(msg);
       }
@@ -77,13 +79,14 @@ export default function SyncCameraScanner({ isOpen, onClose, onScan }) {
     };
   }, [isOpen]);
 
-  // Loop contínuo de leitura de quadros do vídeo via jsQR
+  // Loop de alta performance com leitura em resolução calibrada (evita travamentos em celulares)
   useEffect(() => {
     if (!scanning || !isOpen || success) return;
 
     let localParts = { ...collectedParts };
     let localHash = currentHash;
     let localTotal = totalParts;
+    let frameCounter = 0;
 
     function scanFrame() {
       const video = videoRef.current;
@@ -93,20 +96,40 @@ export default function SyncCameraScanner({ isOpen, onClose, onScan }) {
         return;
       }
 
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
+      if (!vw || !vh) {
+        animRef.current = requestAnimationFrame(scanFrame);
+        return;
+      }
 
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const code = jsQR(imageData.data, imageData.width, imageData.height, {
-        inversionAttempts: 'attemptBoth',
-      });
+      canvas.width = SCAN_VIEWPORT_SIZE;
+      canvas.height = SCAN_VIEWPORT_SIZE;
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+
+      frameCounter++;
+
+      // Alterna estrategicamente entre recorte central (área da mira) e quadro completo redimensionado
+      let code = null;
+      if (frameCounter % 4 !== 0) {
+        // Modo foco central: 85% do menor lado (alta precisão e velocidade)
+        const crop = Math.min(vw, vh) * 0.85;
+        const sx = (vw - crop) / 2;
+        const sy = (vh - crop) / 2;
+        ctx.drawImage(video, sx, sy, crop, crop, 0, 0, SCAN_VIEWPORT_SIZE, SCAN_VIEWPORT_SIZE);
+        const img = ctx.getImageData(0, 0, SCAN_VIEWPORT_SIZE, SCAN_VIEWPORT_SIZE);
+        code = jsQR(img.data, SCAN_VIEWPORT_SIZE, SCAN_VIEWPORT_SIZE, { inversionAttempts: 'dontInvert' });
+      } else {
+        // Modo visão ampla: quadro completo redimensionado caso a mira esteja ligeiramente desalinhada
+        ctx.drawImage(video, 0, 0, vw, vh, 0, 0, SCAN_VIEWPORT_SIZE, SCAN_VIEWPORT_SIZE);
+        const img = ctx.getImageData(0, 0, SCAN_VIEWPORT_SIZE, SCAN_VIEWPORT_SIZE);
+        code = jsQR(img.data, SCAN_VIEWPORT_SIZE, SCAN_VIEWPORT_SIZE, { inversionAttempts: 'dontInvert' });
+      }
 
       if (code?.data) {
         const raw = code.data.trim();
 
-        // Código com fragmentação dinâmica proprietária: FMP1:<hash>:<idx>:<total>:<slice>
+        // Código com fragmentação dinâmica: FMP1:<hash>:<idx>:<total>:<slice>
         if (raw.startsWith('FMP1:')) {
           const parts = raw.split(':');
           if (parts.length >= 5) {
@@ -144,18 +167,18 @@ export default function SyncCameraScanner({ isOpen, onClose, onScan }) {
                   if (streamRef.current) {
                     streamRef.current.getTracks().forEach((t) => t.stop());
                   }
-                  navigator.vibrate?.([50, 40, 100]);
+                  navigator.vibrate?.([60, 40, 100]);
                   setTimeout(() => {
                     onScan(assembled);
                     onClose();
-                  }, 600);
+                  }, 400);
                   return;
                 }
               }
             }
           }
         } else if (raw.startsWith('FMSYNC1.')) {
-          // Código completo em quadro único
+          // Pacote completo em quadro único
           setSuccess(true);
           if (streamRef.current) {
             streamRef.current.getTracks().forEach((t) => t.stop());
@@ -164,7 +187,7 @@ export default function SyncCameraScanner({ isOpen, onClose, onScan }) {
           setTimeout(() => {
             onScan(raw);
             onClose();
-          }, 400);
+          }, 350);
           return;
         }
       }
@@ -212,7 +235,7 @@ export default function SyncCameraScanner({ isOpen, onClose, onScan }) {
               <video ref={videoRef} className="camera-video-element" />
               <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-              {/* Moldura guia do leitor óptico */}
+              {/* Mira visual de enquadramento com guias de canto */}
               <div className={`camera-guide-box ${success ? 'guide-success' : ''}`}>
                 <div className="guide-corner top-left" />
                 <div className="guide-corner top-right" />
@@ -237,7 +260,7 @@ export default function SyncCameraScanner({ isOpen, onClose, onScan }) {
               {totalParts > 1 ? (
                 <div>
                   <div className="camera-progress-info">
-                    <span>Capturando fluxo óptico:</span>
+                    <span>Lendo fluxo contínuo:</span>
                     <strong>{collectedCount} de {totalParts} quadros ({progressPercent}%)</strong>
                   </div>
                   <div className="camera-progress-bar">
