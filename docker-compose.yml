@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  factory-map:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: factory-map
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATA_DIR=/app/server/data
+      # - APP_SECRET=adicione-aqui-uma-chave-secreta-longa-e-segura
+    volumes:
+      - factory_data:/app/server/data
+
+volumes:
+  factory_data:
+    name: factory_data
