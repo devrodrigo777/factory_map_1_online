@@ -46,6 +46,7 @@ function buildSyncPayload(type, adminUsername) {
     records,
     imports,
     record_history,
+    fields_ref: db.prepare("SELECT key, label, type FROM fields WHERE expr = ''").all(),
   };
 
   const counts = {
@@ -235,10 +236,22 @@ router.post('/sync/apply', wrap(async (req, res) => {
 
       // 7. Restaura Imagens em disco
       if (payload.images && typeof payload.images === 'object') {
+        fs.mkdirSync(UPLOAD_DIR, { recursive: true });
         for (const [filename, base64Data] of Object.entries(payload.images)) {
           const fullPath = path.join(UPLOAD_DIR, filename);
           fs.writeFileSync(fullPath, Buffer.from(base64Data, 'base64'));
         }
+      }
+    }
+
+    if (!isFull && Array.isArray(payload.fields_ref)) {
+      const have = new Set(db.prepare('SELECT key FROM fields').all().map((f) => f.key));
+      const labels = new Set(db.prepare('SELECT label FROM fields').all().map((f) => f.label.toLowerCase()));
+      for (const f of payload.fields_ref) {
+        if (have.has(f.key)) continue;
+        const label = labels.has(String(f.label).toLowerCase()) ? `${f.label} (backup)` : f.label;
+        const order = db.prepare('SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM fields').get().n;
+        db.prepare('INSERT INTO fields (key, label, type, sort_order) VALUES (?, ?, ?, ?)').run(f.key, label, f.type, order);
       }
     }
 

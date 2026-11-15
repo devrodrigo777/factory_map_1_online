@@ -10,6 +10,20 @@ import SyncCameraScanner from '../components/SyncCameraScanner.jsx';
 
 const TYPE_NAME = { data: 'Somente dados', full: 'Dados + configurações' };
 
+function parseManifestFromCode(code) {
+  if (!code || typeof code !== 'string') return null;
+  const parts = code.trim().split('.');
+  if (parts.length !== 3 || parts[0] !== 'FMSYNC1') return null;
+  try {
+    let b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    const jsonStr = decodeURIComponent(escape(atob(b64)));
+    return JSON.parse(jsonStr);
+  } catch {
+    return null;
+  }
+}
+
 export default function Backup() {
   const toast = useToast();
   const { expire } = useAuth();
@@ -32,6 +46,8 @@ export default function Backup() {
   const [receiveMode, setReceiveMode] = useState('replace');
   const [copiedSync, setCopiedSync] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [confirmModal, setConfirmModal] = useState(null);
+  const [confirmSuccess, setConfirmSuccess] = useState(null);
 
   const fail = useCallback((e) => toast(e.message, 'error'), [toast]);
   const load = useCallback(() => api.listBackups().then(setList).catch(fail), [fail]);
@@ -125,25 +141,37 @@ export default function Backup() {
     }
   };
 
-  const handleApplySync = async () => {
-    if (!receiveCode.trim()) return toast('Cole o código de sincronização.', 'error');
-    if (!adminPassword) return toast('Digite sua senha de administrador para autorizar a sincronização.', 'error');
-
-    if (!window.confirm('Deseja realmente aplicar a sincronização? Um backup de segurança do estado atual será criado automaticamente antes.')) {
+  const openSyncConfirmModal = (rawCode) => {
+    const code = (rawCode || receiveCode).trim();
+    if (!code) {
+      toast('Nenhum código de sincronização disponível.', 'warn');
       return;
     }
+    const manifest = parseManifestFromCode(code);
+    setConfirmModal({
+      code,
+      manifest,
+    });
+    setConfirmSuccess(null);
+    setAdminPassword('');
+  };
+
+  const handleExecuteApply = async () => {
+    if (!confirmModal?.code) return;
+    if (!adminPassword) return toast('Digite sua senha de administrador.', 'error');
 
     setBusy(true);
     try {
       const res = await api.applySyncPackage({
-        code: receiveCode.trim(),
+        code: confirmModal.code,
         password: adminPassword,
         mode: receiveMode,
       });
-      toast(`Sincronização aplicada com sucesso! ${res.appliedCounts?.records ?? ''} registros ativos.`);
-      setReceiveCode('');
-      setAdminPassword('');
-      load();
+      setConfirmSuccess(res.appliedCounts || { records: 0, maps: 0 });
+      toast('Sincronização aplicada com sucesso! Atualizando aplicação…');
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 1600);
     } catch (e) {
       fail(e);
     } finally {
@@ -185,18 +213,6 @@ export default function Backup() {
               </p>
 
               <div className="choice-list" role="radiogroup">
-                <label className={`choice ${syncScope === 'data' ? 'on' : ''}`}>
-                  <input
-                    type="radio"
-                    name="syncScope"
-                    checked={syncScope === 'data'}
-                    onChange={() => handleScopeChange('data')}
-                  />
-                  <span>
-                    <strong>Somente dados</strong>
-                    <small>Sincroniza apenas registros de bloqueio e histórico. Mantém plantas, áreas e campos como estão.</small>
-                  </span>
-                </label>
                 <label className={`choice ${syncScope === 'full' ? 'on' : ''}`}>
                   <input
                     type="radio"
@@ -205,8 +221,20 @@ export default function Backup() {
                     onChange={() => handleScopeChange('full')}
                   />
                   <span>
-                    <strong>Dados + configurações</strong>
-                    <small>Sincroniza registros, plantas, imagens, áreas, campos, KPIs, perfis de importação e configurações gerais.</small>
+                    <strong>Dados + configurações (Completo - Recomendado)</strong>
+                    <small>Transfere tudo: plantas, imagens, áreas, campos, KPIs, configurações e registros de bloqueio.</small>
+                  </span>
+                </label>
+                <label className={`choice ${syncScope === 'data' ? 'on' : ''}`}>
+                  <input
+                    type="radio"
+                    name="syncScope"
+                    checked={syncScope === 'data'}
+                    onChange={() => handleScopeChange('data')}
+                  />
+                  <span>
+                    <strong>Somente registros de bloqueio</strong>
+                    <small>Transfere apenas os registros de bloqueio. Mantém plantas, áreas e campos existentes como estão.</small>
                   </span>
                 </label>
               </div>
@@ -301,7 +329,7 @@ export default function Backup() {
                     onClose={() => setCameraOpen(false)}
                     onScan={(scannedCode) => {
                       setReceiveCode(scannedCode);
-                      toast('Código de sincronização capturado com sucesso!');
+                      openSyncConfirmModal(scannedCode);
                     }}
                   />
 
@@ -320,64 +348,19 @@ export default function Backup() {
                     <button type="button" className="btn" onClick={handlePasteFromClipboard}>
                       <Icon name="file" size={16} /> Colar da área de transferência
                     </button>
+                    <button
+                      type="button"
+                      className="btn primary"
+                      onClick={() => openSyncConfirmModal(receiveCode)}
+                      disabled={!receiveCode.trim()}
+                    >
+                      <Icon name="check" size={16} /> Analisar e aplicar código
+                    </button>
                     {receiveCode && (
                       <button type="button" className="btn ghost" onClick={() => setReceiveCode('')}>
                         Limpar
                       </button>
                     )}
-                  </div>
-
-                  {syncScope === 'data' && (
-                    <div className="choice-list" style={{ marginTop: 8 }}>
-                      <label className={`choice ${receiveMode === 'replace' ? 'on' : ''}`}>
-                        <input
-                          type="radio"
-                          name="receiveMode"
-                          checked={receiveMode === 'replace'}
-                          onChange={() => setReceiveMode('replace')}
-                        />
-                        <span>
-                          <strong>Substituir</strong>
-                          <small>Apaga os registros atuais e coloca os da sincronização.</small>
-                        </span>
-                      </label>
-                      <label className={`choice ${receiveMode === 'append' ? 'on' : ''}`}>
-                        <input
-                          type="radio"
-                          name="receiveMode"
-                          checked={receiveMode === 'append'}
-                          onChange={() => setReceiveMode('append')}
-                        />
-                        <span>
-                          <strong>Acrescentar</strong>
-                          <small>Mantém os registros atuais e adiciona os novos sem duplicar.</small>
-                        </span>
-                      </label>
-                    </div>
-                  )}
-
-                  <label className="field" style={{ marginTop: 6 }}>
-                    <span style={{ fontWeight: 600 }}>Confirmação com senha de administrador:</span>
-                    <input
-                      type="password"
-                      value={adminPassword}
-                      onChange={(e) => setAdminPassword(e.target.value)}
-                      placeholder="Digite sua senha para autorizar"
-                      autoComplete="current-password"
-                      required
-                    />
-                    <small>Exigido por segurança para validar a gravação e evitar alterações não autorizadas.</small>
-                  </label>
-
-                  <div className="row" style={{ marginTop: 12 }}>
-                    <button
-                      type="button"
-                      className="btn primary"
-                      onClick={handleApplySync}
-                      disabled={busy || !receiveCode.trim() || !adminPassword}
-                    >
-                      <Icon name="swap" /> {busy ? 'Sincronizando…' : 'Confirmar e sincronizar dados'}
-                    </button>
                   </div>
                 </div>
               )}
@@ -481,6 +464,145 @@ export default function Backup() {
               </section>
             )}
           </>
+        )}
+
+        {confirmModal && (
+          <div className="sync-confirm-modal-backdrop" onClick={() => !busy && setConfirmModal(null)}>
+            <div className="sync-confirm-modal-card" onClick={(e) => e.stopPropagation()}>
+              <div className="sync-confirm-header">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 600 }}>
+                  <Icon name="check" size={20} />
+                  <span>Confirmar Gravação da Sincronização</span>
+                </div>
+                {!busy && !confirmSuccess && (
+                  <button type="button" className="btn-icon" onClick={() => setConfirmModal(null)}>
+                    <Icon name="close" size={18} />
+                  </button>
+                )}
+              </div>
+
+              <div className="sync-confirm-body">
+                {confirmSuccess ? (
+                  <div style={{ textAlign: 'center', padding: '16px 8px' }}>
+                    <div style={{ color: '#34d399', marginBottom: 10 }}>
+                      <Icon name="check" size={48} />
+                    </div>
+                    <h3 style={{ margin: '0 0 6px', color: '#fff', fontSize: '1.2rem' }}>
+                      Sincronização Gravada com Sucesso!
+                    </h3>
+                    <p className="muted" style={{ margin: '0 0 16px', fontSize: '0.9rem' }}>
+                      {confirmSuccess.records} registros e {confirmSuccess.maps} plantas atualizados no sistema.
+                    </p>
+                    <p style={{ color: '#38bdf8', fontSize: '0.85rem', marginBottom: 16 }}>
+                      Atualizando e redirecionando para a planta da fábrica…
+                    </p>
+                    <button
+                      type="button"
+                      className="btn primary"
+                      onClick={() => { window.location.href = '/'; }}
+                      style={{ width: '100%', justifyContent: 'center', padding: '12px' }}
+                    >
+                      Ir para a Planta da Fábrica Agora
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="sync-manifest-card">
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                        <span style={{ fontSize: '0.82rem', color: '#94a3b8' }}>Conteúdo do Pacote:</span>
+                        <strong style={{ color: confirmModal.manifest?.type === 'full' ? '#38bdf8' : '#fbbf24', fontSize: '0.85rem' }}>
+                          {confirmModal.manifest?.type === 'full' ? 'Dados + Configurações (Completo)' : 'Somente Registros'}
+                        </strong>
+                      </div>
+
+                      <div className="sync-manifest-grid">
+                        <div className="sync-manifest-item">
+                          <dt>Registros de Bloqueio</dt>
+                          <dd>{formatInt(confirmModal.manifest?.counts?.records ?? 0)}</dd>
+                        </div>
+                        <div className="sync-manifest-item">
+                          <dt>Plantas / Mapas</dt>
+                          <dd>{confirmModal.manifest?.counts?.maps ?? 0}</dd>
+                        </div>
+                        <div className="sync-manifest-item">
+                          <dt>Áreas Delimitadas</dt>
+                          <dd>{confirmModal.manifest?.counts?.areas ?? 0}</dd>
+                        </div>
+                        <div className="sync-manifest-item">
+                          <dt>Imagens de Planta</dt>
+                          <dd>{confirmModal.manifest?.counts?.images ?? 0}</dd>
+                        </div>
+                      </div>
+                    </div>
+
+                    {confirmModal.manifest?.type === 'data' && (
+                      <div className="choice-list" style={{ marginTop: 2 }}>
+                        <label className={`choice ${receiveMode === 'replace' ? 'on' : ''}`}>
+                          <input
+                            type="radio"
+                            name="modalMode"
+                            checked={receiveMode === 'replace'}
+                            onChange={() => setReceiveMode('replace')}
+                          />
+                          <span>
+                            <strong>Substituir</strong>
+                            <small>Substitui os registros atuais pelos da sincronização.</small>
+                          </span>
+                        </label>
+                        <label className={`choice ${receiveMode === 'append' ? 'on' : ''}`}>
+                          <input
+                            type="radio"
+                            name="modalMode"
+                            checked={receiveMode === 'append'}
+                            onChange={() => setReceiveMode('append')}
+                          />
+                          <span>
+                            <strong>Acrescentar</strong>
+                            <small>Mantém os registros atuais e adiciona os novos sem duplicar.</small>
+                          </span>
+                        </label>
+                      </div>
+                    )}
+
+                    <div className="sync-password-box">
+                      <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>
+                        Digite sua senha de administrador para autorizar a gravação:
+                      </label>
+                      <input
+                        type="password"
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                        placeholder="Senha de administrador deste aparelho"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && adminPassword && !busy) handleExecuteApply();
+                        }}
+                      />
+                      <small className="muted">
+                        Exigido para garantir que apenas administradores autorizados possam gravar os dados sincronizados.
+                      </small>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {!confirmSuccess && (
+                <div className="sync-confirm-footer">
+                  <button type="button" className="btn" onClick={() => setConfirmModal(null)} disabled={busy}>
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    className="btn primary"
+                    onClick={handleExecuteApply}
+                    disabled={busy || !adminPassword}
+                  >
+                    {busy ? 'Gravando dados e imagens…' : 'Confirmar e Gravar Sincronização'}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
     </Shell>
