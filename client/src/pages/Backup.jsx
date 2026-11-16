@@ -541,7 +541,7 @@ export default function Backup() {
                 <button className="btn primary" onClick={create} disabled={busy}><Icon name="save" /> Criar e baixar backup</button>
                 <a className="btn" href="/api/export/records.xlsx"><Icon name="upload" /> Exportar registros (Excel)</a>
               </div>
-              <p className="muted">O sistema também cria um backup completo automático por dia no servidor (guarda os últimos 14).</p>
+              <p className="muted">O sistema também cria um backup completo automático por dia no servidor (guarda os últimos 5).</p>
             </section>
 
             <section className="card">

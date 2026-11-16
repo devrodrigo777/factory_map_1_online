@@ -136,7 +136,7 @@ export const DEFAULT_CONFIG = {
     { min_hours: 168, color: '#A32020', label: 'Mais de 7 dias' },
   ],
   recurrence_days: 7,
-  backup: { enabled: true, mode: 'daily', time: '02:00', every_hours: 6, type: 'full', include_users: true, keep: 14, copy_to: '' },
+  backup: { enabled: true, mode: 'daily', time: '02:00', every_hours: 6, type: 'full', include_users: true, keep: 5, copy_to: '' },
   import: { enabled: false, folder: '', interval_s: 60, profile_id: null, after: 'move', min_match: 0.6, check_on_login: false },
 };
 

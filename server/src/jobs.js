@@ -53,10 +53,11 @@ export async function runBackupJob() {
   const at = new Date().toISOString();
   try {
     const c = getConfig().backup;
-    const out = await runBackup({ type: c.type, includeUsers: c.include_users, prefix: 'auto', keep: c.keep, copyTo: c.copy_to });
-    const msg = `${out.name} (${Math.round(out.size / 1024)} KB)${c.copy_to ? (out.copyError ? ` — FALHA ao copiar para a pasta externa: ${out.copyError}` : ' — copiado para a pasta externa') : ''}`;
-    setState('backup', { last_run: at, last_ok: !out.copyError, last_message: msg, last_file: out.name });
-    log('backup', out.copyError ? 'warn' : 'ok', msg);
+    const maxKeep = Math.min(5, Math.max(1, c.keep || 5));
+    const out = await runBackup({ type: c.type, includeUsers: c.include_users, prefix: 'auto', keep: maxKeep, copyTo: '' });
+    const msg = `${out.name} (${Math.round(out.size / 1024)} KB)`;
+    setState('backup', { last_run: at, last_ok: true, last_message: msg, last_file: out.name });
+    log('backup', 'ok', msg);
   } catch (e) {
     setState('backup', { last_run: at, last_ok: false, last_message: e.message });
     log('backup', 'error', e.message);
@@ -150,10 +151,6 @@ export function startJobs() {
           try {
             const cfg = getConfig();
             if (backupDue(cfg.backup, getState('backup'))) await runBackupJob();
-            if (cfg.import.enabled && cfg.import.folder && Date.now() - lastImportTick >= cfg.import.interval_s * 1000) {
-              lastImportTick = Date.now();
-              await runImportJob(false);
-            }
           } catch (err) {
             console.error(`Falha em tarefa da empresa ${comp.id}:`, err.message);
           }
@@ -219,10 +216,9 @@ function cleanConfig(b) {
       every_hours: clampNum(x.every_hours, 1, 168, 6),
       type: x.type === 'data' ? 'data' : 'full',
       include_users: !!x.include_users,
-      keep: Math.round(clampNum(x.keep, 1, 365, 14)),
-      copy_to: String(x.copy_to ?? '').trim(),
+      keep: Math.round(clampNum(x.keep, 1, 5, 5)),
+      copy_to: '',
     };
-    if (c.copy_to) { const err = checkFolder(c.copy_to, { write: true }); if (err) throw httpError(400, `Pasta de cópia do backup: ${err}`); }
     out.backup = c;
   }
   if (b.import) {
