@@ -26,6 +26,8 @@ const paths = {
   save: 'M5 4h12l3 3v13H5zM8 4v6h8V4M8 20v-6h8v6',
   camera: 'M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
   magnet: 'M6 4v7a6 6 0 0 0 12 0V4M6 8h4M14 8h4M4 4h6M14 4h6',
+  undo: 'M3 7v6h6M3 13a9 9 0 102.16-5.74L3 13',
+  redo: 'M21 7v6h-6M21 13a9 9 0 11-2.16-5.74L21 13',
   play: 'M5 3l14 9-14 9V3z',
   pause: 'M6 4h4v16H6zM14 4h4v16h-4z',
   refresh: 'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',

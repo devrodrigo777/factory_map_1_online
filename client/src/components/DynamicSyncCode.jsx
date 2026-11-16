@@ -2,8 +2,8 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import QRCode from 'qrcode';
 import Icon from './Icons.jsx';
 
-// Intervalo automático e calibrado para leitura ideal por câmeras de dispositivos móveis
-const AUTO_FRAME_INTERVAL_MS = 290;
+// Intervalo automático e acelerado para transmissão visual contínua
+const AUTO_FRAME_INTERVAL_MS = 200;
 
 // Divide o pacote de sincronização em fragmentos de tamanho ideal para módulos QR grandes e de fácil leitura
 function splitIntoChunks(fullText, chunkSize = 220) {
@@ -70,12 +70,6 @@ export default function DynamicSyncCode({ code, size = 320, onCopy }) {
   return (
     <div className="dynamic-sync-container">
       <div className="dynamic-sync-card">
-        <div className="dynamic-sync-header">
-          <span className="sync-frame-counter">
-            Quadro <strong>{frameIdx + 1}</strong> de <strong>{totalFrames}</strong>
-          </span>
-        </div>
-
         {/* Viewport do código com moldura de foco de alto contraste */}
         <div className="dynamic-sync-viewport high-contrast">
           <div className="sync-corner top-left" />
@@ -91,14 +85,6 @@ export default function DynamicSyncCode({ code, size = 320, onCopy }) {
               className="dynamic-sync-canvas"
             />
           </div>
-        </div>
-
-        {/* Barra de progresso contínua dos quadros transmitidos */}
-        <div className="sync-progress-bar">
-          <div
-            className="sync-progress-fill"
-            style={{ width: `${((frameIdx + 1) / totalFrames) * 100}%` }}
-          />
         </div>
 
         <p className="sync-notice">

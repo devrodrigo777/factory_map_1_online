@@ -51,7 +51,7 @@ const BUILTIN_SUGGESTIONS = [
 
 export function tokenizeCode(code) {
   if (!code) return [];
-  const regex = /("(?:\\.|[^"\\])*"|'(:?\\.|[^'\\])*'|\[[^\]\n\r]+\]|\b(?:ativo|and|or|not|e|ou|nao|true|false|null)\b|\b(?:split|trim|if|isEmpty|contains|oneOf|between|daysSince|hoursSince|diffDays|diffHours|year|month|day|coalesce|round|abs|min|max|today|now)\b|\b\d+(?:\.\d+)?\b|==|!=|<=|>=|<|>|\+|-|\*|\/|\(|\)|,|\s+|[^\s\w[\]()",]+|\w+)/gi;
+  const regex = /("(?:\\.|[^"\\])*(?:"|$)|'(?:\\.|[^'\\])*(?:'|$)|\[[^\]\r\n]*(?:\]|$)|\]|==|!=|<=|>=|<|>|\+|-|\*|\/|\b(?:ativo|and|or|not|e|ou|nao|true|false|null)\b|\b(?:split|trim|if|isEmpty|contains|oneOf|between|daysSince|hoursSince|diffDays|diffHours|year|month|day|coalesce|round|abs|min|max|today|now)\b|\b\d+(?:\.\d+)?\b|[(),;]|\s+|\w+|[^\s\w])/gi;
 
   const tokens = [];
   let match;
@@ -61,7 +61,7 @@ export function tokenizeCode(code) {
 
     if (text.startsWith('"') || text.startsWith("'")) {
       type = 'string';
-    } else if (text.startsWith('[') && text.endsWith(']')) {
+    } else if (text.startsWith('[') || text === ']') {
       type = 'field';
     } else if (/^(ativo|and|or|not|e|ou|nao|true|false|null)$/i.test(text)) {
       type = 'keyword';
@@ -71,7 +71,7 @@ export function tokenizeCode(code) {
       type = 'number';
     } else if (/^(==|!=|<=|>=|<|>|\+|-|\*|\/)$/.test(text)) {
       type = 'operator';
-    } else if (/^(\(|\)|,)$/.test(text)) {
+    } else if (/^[(),;]$/.test(text)) {
       type = 'punctuation';
     }
 

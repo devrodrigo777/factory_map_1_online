@@ -12,6 +12,7 @@ const coarse = typeof window !== 'undefined' && window.matchMedia?.('(pointer: c
 let seq = 0;
 const newUid = () => `n${++seq}`;
 const withUid = (a) => ({ ...a, uid: `a${a.id}` });
+const MAX_HISTORY = 30; // Suporta histórico de pelo menos 10 passos (até 30)
 
 export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onOpenMap }) {
   const toast = useToast();
@@ -21,7 +22,10 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
 
   const [map, setMap] = useState(null);
   const [areas, setAreas] = useState([]);
-  const [selectedUids, setSelectedUids] = useState([]); // Seleção múltipla suportada
+  const areasRef = useRef(areas);
+  areasRef.current = areas;
+
+  const [selectedUids, setSelectedUids] = useState([]);
   const [tool, setTool] = useState('select'); // select | polygon | rect
   const [draft, setDraft] = useState([]); // pontos normalizados em desenho
   const [hover, setHover] = useState(null);
@@ -29,6 +33,12 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
   const [fields, setFields] = useState([]);
+
+  // Histórico de Desfazer/Refazer (Ctrl+Z / Ctrl+Y)
+  const historyRef = useRef([]);
+  const historyIdxRef = useRef(-1);
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
 
   // Movimentação magnética leve (desativável pelo usuário)
   const [snapMagnetic, setSnapMagnetic] = useState(() => localStorage.getItem('editor_snap_magnetic') !== 'false');
@@ -42,12 +52,59 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
   const mark = useCallback(() => { setDirty(true); onDirty(true); }, [onDirty]);
   const clean = useCallback(() => { setDirty(false); onDirty(false); }, [onDirty]);
 
+  const initHistory = (initialAreas) => {
+    historyRef.current = [JSON.parse(JSON.stringify(initialAreas))];
+    historyIdxRef.current = 0;
+    setCanUndo(false);
+    setCanRedo(false);
+  };
+
+  const pushHistory = (newAreas) => {
+    const serialized = JSON.parse(JSON.stringify(newAreas));
+    const currentIdx = historyIdxRef.current;
+    const nextHistory = historyRef.current.slice(0, currentIdx + 1);
+    nextHistory.push(serialized);
+    if (nextHistory.length > MAX_HISTORY) {
+      nextHistory.shift();
+    }
+    historyRef.current = nextHistory;
+    historyIdxRef.current = nextHistory.length - 1;
+    setCanUndo(historyIdxRef.current > 0);
+    setCanRedo(false);
+  };
+
+  const undo = () => {
+    if (historyIdxRef.current <= 0) return;
+    historyIdxRef.current -= 1;
+    const prevAreas = JSON.parse(JSON.stringify(historyRef.current[historyIdxRef.current]));
+    setAreas(prevAreas);
+    setSelectedUids((prev) => prevAreas.filter((a) => prev.includes(a.uid)).map((a) => a.uid));
+    mark();
+    setCanUndo(historyIdxRef.current > 0);
+    setCanRedo(true);
+    toast('Ação desfeita (Ctrl+Z)');
+  };
+
+  const redo = () => {
+    if (historyIdxRef.current >= historyRef.current.length - 1) return;
+    historyIdxRef.current += 1;
+    const nextAreas = JSON.parse(JSON.stringify(historyRef.current[historyIdxRef.current]));
+    setAreas(nextAreas);
+    setSelectedUids((prev) => nextAreas.filter((a) => prev.includes(a.uid)).map((a) => a.uid));
+    mark();
+    setCanUndo(true);
+    setCanRedo(historyIdxRef.current < historyRef.current.length - 1);
+    toast('Ação refeita (Ctrl+Y)');
+  };
+
   const load = useCallback(async () => {
     try {
       const m = await api.getMap(mapId);
       setMap(m);
       setName(m.name);
-      setAreas(m.areas.map(withUid));
+      const withU = m.areas.map(withUid);
+      setAreas(withU);
+      initHistory(withU);
       clean();
     } catch (e) {
       toast(e.message, 'error');
@@ -69,7 +126,6 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
   const getSnapTarget = (x, y, uid, vertIdx) => {
     if (!snapMagnetic) return { x, y };
     const k = stageRef.current?.view?.k || 1;
-    // Tolerância magnética suave de aprox. 9px
     const thresholdX = 9 / (map.width * k);
     const thresholdY = 9 / (map.height * k);
 
@@ -117,11 +173,13 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
   // ---------- criar / editar áreas ----------
   const addArea = (points) => {
     const uid = newUid();
-    setAreas((list) => [...list, {
-      uid, id: null, name: `Área ${list.length + 1}`, code: '', description: '', points,
-      color: COLORS[list.length % COLORS.length], opacity: 0.25, show_label: true, target_map_id: null,
+    const next = [...areas, {
+      uid, id: null, name: `Área ${areas.length + 1}`, code: '', description: '', points,
+      color: COLORS[areas.length % COLORS.length], opacity: 0.25, show_label: true, target_map_id: null,
       lock_filter: '', show_lock: false, display_fields: [],
-    }]);
+    }];
+    setAreas(next);
+    pushHistory(next);
     setSelectedUids([uid]);
     setDraft([]);
     setHover(null);
@@ -129,10 +187,10 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
     mark();
   };
 
-  const patchArea = (uid, patch) => { setAreas((l) => l.map((a) => (a.uid === uid ? { ...a, ...patch } : a))); mark(); };
-  
-  const patchMultiAreas = (patch) => {
-    setAreas((l) => l.map((a) => (selectedUids.includes(a.uid) ? { ...a, ...patch } : a)));
+  const patchArea = (uid, patch) => {
+    const next = areas.map((a) => (a.uid === uid ? { ...a, ...patch } : a));
+    setAreas(next);
+    pushHistory(next);
     mark();
   };
 
@@ -145,7 +203,9 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
       danger: true,
     });
     if (!ok) return;
-    setAreas((l) => l.filter((x) => x.uid !== uid));
+    const next = areas.filter((x) => x.uid !== uid);
+    setAreas(next);
+    pushHistory(next);
     setSelectedUids((prev) => prev.filter((id) => id !== uid));
     mark();
   };
@@ -159,7 +219,9 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
       danger: true,
     });
     if (!ok) return;
-    setAreas((l) => l.filter((x) => !selectedUids.includes(x.uid)));
+    const next = areas.filter((x) => !selectedUids.includes(x.uid));
+    setAreas(next);
+    pushHistory(next);
     setSelectedUids([]);
     mark();
   };
@@ -201,18 +263,24 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
     }
   };
 
-  // ---------- arrastar vértices / mover área ----------
-  const drag = (e, onMove) => {
+  // ---------- arrastar vértices / mover área com suporte a histórico ----------
+  const drag = (e, onMove, onEnd) => {
     e.stopPropagation();
     e.preventDefault();
     const id = e.pointerId;
     const start = stageRef.current.clientToContent(e.clientX, e.clientY);
-    const move = (ev) => ev.pointerId === id && onMove(stageRef.current.clientToContent(ev.clientX, ev.clientY), start);
+    let moved = false;
+    const move = (ev) => {
+      if (ev.pointerId !== id) return;
+      moved = true;
+      onMove(stageRef.current.clientToContent(ev.clientX, ev.clientY), start);
+    };
     const up = (ev) => {
       if (ev.pointerId !== id) return;
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
+      if (moved && onEnd) onEnd();
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
@@ -226,18 +294,21 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
     mark();
   };
 
-  const startVertex = (e, uid, i) => drag(e, (p) => setPoint(uid, i, p));
+  const startVertex = (e, uid, i) => drag(e, (p) => setPoint(uid, i, p), () => pushHistory(areasRef.current));
 
   const startInsert = (e, a, i) => {
     const q = a.points[(i + 1) % a.points.length];
     const mid = [(a.points[i][0] + q[0]) / 2, (a.points[i][1] + q[1]) / 2];
-    setAreas((l) => l.map((x) => (x.uid !== a.uid ? x : { ...x, points: [...x.points.slice(0, i + 1), mid, ...x.points.slice(i + 1)] })));
+    const next = areas.map((x) => (x.uid !== a.uid ? x : { ...x, points: [...x.points.slice(0, i + 1), mid, ...x.points.slice(i + 1)] }));
+    setAreas(next);
     mark();
-    drag(e, (p) => setPoint(a.uid, i + 1, p));
+    drag(e, (p) => setPoint(a.uid, i + 1, p), () => pushHistory(areasRef.current));
   };
 
   const removeVertex = (uid, i) => {
-    setAreas((l) => l.map((a) => (a.uid !== uid || a.points.length <= 3 ? a : { ...a, points: a.points.filter((_, j) => j !== i) })));
+    const next = areas.map((a) => (a.uid !== uid || a.points.length <= 3 ? a : { ...a, points: a.points.filter((_, j) => j !== i) }));
+    setAreas(next);
+    pushHistory(next);
     mark();
   };
 
@@ -251,24 +322,48 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
     const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
     const snapshots = movingAreas.map((x) => ({ uid: x.uid, points: x.points }));
 
-    drag(e, (p, s) => {
-      const dx = clamp((p.x - s.x) / map.width, -minX, 1 - maxX);
-      const dy = clamp((p.y - s.y) / map.height, -minY, 1 - maxY);
-      setAreas((l) =>
-        l.map((x) => {
-          const snap = snapshots.find((s) => s.uid === x.uid);
-          if (!snap) return x;
-          return { ...x, points: snap.points.map(([px, py]) => [px + dx, py + dy]) };
-        })
-      );
-      mark();
-    });
+    drag(
+      e,
+      (p, s) => {
+        const dx = clamp((p.x - s.x) / map.width, -minX, 1 - maxX);
+        const dy = clamp((p.y - s.y) / map.height, -minY, 1 - maxY);
+        setAreas((l) =>
+          l.map((x) => {
+            const snap = snapshots.find((s) => s.uid === x.uid);
+            if (!snap) return x;
+            return { ...x, points: snap.points.map(([px, py]) => [px + dx, py + dy]) };
+          })
+        );
+        mark();
+      },
+      () => pushHistory(areasRef.current)
+    );
   };
 
-  // ---------- teclado ----------
+  // ---------- teclado (atalhos de histórico, ferramentas e exclusão) ----------
   useEffect(() => {
     const onKey = (e) => {
       if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+
+      // Desfazer: Ctrl+Z / Cmd+Z
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) {
+        if (e.shiftKey) {
+          e.preventDefault();
+          redo();
+        } else {
+          e.preventDefault();
+          undo();
+        }
+        return;
+      }
+
+      // Refazer: Ctrl+Y / Cmd+Y
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) {
+        e.preventDefault();
+        redo();
+        return;
+      }
+
       if (e.key === 'Escape') {
         if (draft.length) cancelDraft();
         else if (tool !== 'select') setTool('select');
@@ -359,7 +454,7 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
         return (
           <g
             key={a.uid}
-            className={`area${isSel ? ' is-selected' : ''}${tool !== 'select' ? ' is-passive' : ''}${a.target_map_id ? ' has-target' : ''}`}
+            className={`area${isSel ? ' is-selected' : ''}${isMulti && isSel ? ' is-multi' : ''}${tool !== 'select' ? ' is-passive' : ''}${a.target_map_id ? ' has-target' : ''}`}
             style={{ '--c': a.color, '--o': a.opacity }}
           >
             <polygon
@@ -388,12 +483,40 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
                 }
               }}
             />
-            {a.show_label && a.name && <text x={cx} y={cy} fontSize={14 / k} strokeWidth={3.5 / k}>{a.name}</text>}
+
+            {/* Destaque visual luminoso com linha pontilhada neon para áreas na seleção múltipla */}
+            {isMulti && isSel && (
+              <polygon
+                points={pointsAttr(a.points, map.width, map.height)}
+                vectorEffect="non-scaling-stroke"
+                className="multi-sel-glow"
+                pointerEvents="none"
+              />
+            )}
+
+            {/* Badge distintivo circular com check no centro de cada área da seleção múltipla */}
+            {isMulti && isSel && (
+              <g transform={`translate(${cx}, ${cy})`} pointerEvents="none">
+                <circle r={14 / k} fill="#0284c7" stroke="#ffffff" strokeWidth={2.5 / k} filter="drop-shadow(0 2px 5px rgba(0,0,0,0.5))" />
+                <path
+                  d={`M ${-5 / k} ${0} L ${-1.5 / k} ${3.5 / k} L ${5 / k} ${-3.5 / k}`}
+                  fill="none"
+                  stroke="#ffffff"
+                  strokeWidth={2.5 / k}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </g>
+            )}
+
+            {a.show_label && a.name && (!isMulti || !isSel) && (
+              <text x={cx} y={cy} fontSize={14 / k} strokeWidth={3.5 / k}>{a.name}</text>
+            )}
           </g>
         );
       })}
 
-      {/* Alças de ajuste disponíveis quando apenas UMA área estiver selecionada */}
+      {/* Alças de ajuste de vértices disponíveis quando apenas UMA área estiver selecionada */}
       {isSingle && selArea && tool === 'select' && (
         <g>
           {selArea.points.map((p, i) => {
@@ -433,7 +556,7 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
     tool === 'polygon' ? (draft.length < 3 ? 'Toque na planta para marcar os cantos da área.' : 'Continue marcando ou toque no primeiro ponto para fechar.')
     : tool === 'rect' ? (draft.length ? 'Toque no canto oposto.' : 'Toque no primeiro canto do retângulo.')
     : isMulti ? `${selectedUids.length} áreas selecionadas. Arraste qualquer uma para mover todas juntas.`
-    : selArea ? 'Arraste os pontos para ajustar. Use CTRL para selecionar múltiplas áreas.'
+    : selArea ? 'Arraste os pontos para ajustar. Segure CTRL para selecionar múltiplas áreas.'
     : 'Toque em uma área para editar, segure CTRL para seleção múltipla, ou clique no fundo para ver a planta.';
 
   const otherMaps = maps.filter((m) => m.id !== mapId);
@@ -445,6 +568,30 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
           <button className={`btn ${tool === 'select' ? 'active' : ''}`} onClick={() => chooseTool('select')}><Icon name="cursor" /><span>Selecionar</span></button>
           <button className={`btn ${tool === 'polygon' ? 'active' : ''}`} onClick={() => chooseTool('polygon')}><Icon name="polygon" /><span>Polígono</span></button>
           <button className={`btn ${tool === 'rect' ? 'active' : ''}`} onClick={() => chooseTool('rect')}><Icon name="square" /><span>Retângulo</span></button>
+        </div>
+
+        {/* Botões de Desfazer e Refazer (Histórico de passos) */}
+        <div className="seg" role="group" aria-label="Histórico de alterações">
+          <button
+            type="button"
+            className="btn icon"
+            onClick={undo}
+            disabled={!canUndo}
+            title="Desfazer (Ctrl+Z)"
+            aria-label="Desfazer"
+          >
+            <Icon name="undo" />
+          </button>
+          <button
+            type="button"
+            className="btn icon"
+            onClick={redo}
+            disabled={!canRedo}
+            title="Refazer (Ctrl+Y)"
+            aria-label="Refazer"
+          >
+            <Icon name="redo" />
+          </button>
         </div>
 
         {/* Botão de alternância magnética */}
@@ -505,27 +652,31 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
                 <h2>Áreas ({areas.length})</h2>
                 {areas.length === 0 && <p className="muted">Nenhuma área ainda. Use Polígono ou Retângulo para desenhar a primeira.</p>}
                 <ul className="area-list">
-                  {areas.map((a) => (
-                    <li key={a.uid}>
-                      <button
-                        className={selectedUids.includes(a.uid) ? 'active' : ''}
-                        onClick={(e) => {
-                          chooseTool('select');
-                          if (e.ctrlKey || e.metaKey) {
-                            setSelectedUids((prev) =>
-                              prev.includes(a.uid) ? prev.filter((id) => id !== a.uid) : [...prev, a.uid]
-                            );
-                          } else {
-                            setSelectedUids([a.uid]);
-                          }
-                        }}
-                      >
-                        <span className="swatch" style={{ background: a.color }} />
-                        <span>{a.name || 'Sem nome'}</span>
-                        {a.target_map_id && <Icon name="open" size={15} />}
-                      </button>
-                    </li>
-                  ))}
+                  {areas.map((a) => {
+                    const isSelectedInList = selectedUids.includes(a.uid);
+                    return (
+                      <li key={a.uid}>
+                        <button
+                          className={isSelectedInList ? 'active' : ''}
+                          onClick={(e) => {
+                            chooseTool('select');
+                            if (e.ctrlKey || e.metaKey) {
+                              setSelectedUids((prev) =>
+                                prev.includes(a.uid) ? prev.filter((id) => id !== a.uid) : [...prev, a.uid]
+                              );
+                            } else {
+                              setSelectedUids([a.uid]);
+                            }
+                          }}
+                        >
+                          <span className="swatch" style={{ background: a.color }} />
+                          <span>{a.name || 'Sem nome'}</span>
+                          {isMulti && isSelectedInList && <span className="multi-check-tag">✓</span>}
+                          {a.target_map_id && <Icon name="open" size={15} />}
+                        </button>
+                      </li>
+                    );
+                  })}
                 </ul>
               </section>
             </>
@@ -614,7 +765,7 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
             </>
           )}
 
-          {/* Seção 3: Edição MÚLTIPLA com CTRL (apenas informações de Cadeado (LOTO) para baixo) */}
+          {/* Seção 3: Edição MÚLTIPLA com CTRL (oculta dados individuais e exibe apenas configs comuns de informações de cadeado) */}
           {isMulti && (
             <>
               <section className="panel">
@@ -625,7 +776,7 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
                   </button>
                 </div>
                 <p className="muted" style={{ margin: '4px 0' }}>
-                  Edição em lote: as regras abaixo serão sincronizadas em todas as áreas selecionadas.
+                  Edição em lote: configure as informações comuns de cadeado para todas as {selectedUids.length} áreas selecionadas.
                 </p>
                 <div className="row" style={{ marginTop: 8 }}>
                   <button className="btn danger" onClick={removeSelectedAreas}>
@@ -635,59 +786,35 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
               </section>
 
               <section className="panel">
-                <h2>Cadeado (LOTO)</h2>
-                <label className="check">
-                  <input
-                    type="checkbox"
-                    checked={selectedAreas.every((a) => a.show_lock)}
-                    onChange={(e) => patchMultiAreas({ show_lock: e.target.checked })}
-                  />
-                  Mostrar cadeado quando houver bloqueio ativo
-                </label>
-
-                {selectedAreas.some((a) => a.show_lock) && (
-                  <>
-                    <div className="field">Quais registros pertencem a estas áreas?
-                      <ExprInput
-                        value={selectedAreas[0]?.lock_filter || ''}
-                        onChange={(v) => patchMultiAreas({ lock_filter: v })}
-                        fields={fields.filter((f) => !f.computed)}
-                        placeholder={'[Setor] == "Produção"'}
-                      />
-                      <small>Aplica a mesma regra de filtro a todas as {selectedUids.length} áreas selecionadas.</small>
-                    </div>
-
-                    <fieldset className="cols-pick">
-                      <legend>Informações mostradas ao clicar no cadeado</legend>
-                      <small>Nenhuma marcada = todos os campos exibidos.</small>
-                      {fields.map((f) => {
-                        const allHave = selectedAreas.every((a) => a.display_fields.includes(f.key));
-                        return (
-                          <label key={f.key} className="check compact">
-                            <input
-                              type="checkbox"
-                              checked={allHave}
-                              onChange={(e) => {
-                                const checked = e.target.checked;
-                                setAreas((l) =>
-                                  l.map((a) => {
-                                    if (!selectedUids.includes(a.uid)) return a;
-                                    const nextCols = checked
-                                      ? fields.filter((x) => x.key === f.key || a.display_fields.includes(x.key)).map((x) => x.key)
-                                      : a.display_fields.filter((k) => k !== f.key);
-                                    return { ...a, display_fields: nextCols };
-                                  })
-                                );
-                                mark();
-                              }}
-                            />
-                            {f.label}{f.computed ? ' ƒ' : ''}
-                          </label>
-                        );
-                      })}
-                    </fieldset>
-                  </>
-                )}
+                <h2>Informações mostradas ao clicar no cadeado</h2>
+                <small className="muted">Nenhuma marcada = todos os campos exibidos.</small>
+                <fieldset className="cols-pick" style={{ marginTop: 8 }}>
+                  {fields.map((f) => {
+                    const allHave = selectedAreas.every((a) => a.display_fields.includes(f.key));
+                    return (
+                      <label key={f.key} className="check compact">
+                        <input
+                          type="checkbox"
+                          checked={allHave}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            const next = areas.map((a) => {
+                              if (!selectedUids.includes(a.uid)) return a;
+                              const nextCols = checked
+                                ? fields.filter((x) => x.key === f.key || a.display_fields.includes(x.key)).map((x) => x.key)
+                                : a.display_fields.filter((k) => k !== f.key);
+                              return { ...a, display_fields: nextCols };
+                            });
+                            setAreas(next);
+                            pushHistory(next);
+                            mark();
+                          }}
+                        />
+                        {f.label}{f.computed ? ' ƒ' : ''}
+                      </label>
+                    );
+                  })}
+                </fieldset>
               </section>
             </>
           )}
