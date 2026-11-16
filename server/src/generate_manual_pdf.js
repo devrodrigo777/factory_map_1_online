@@ -6,7 +6,20 @@ import { fileURLToPath } from 'node:url';
 import PDFDocument from 'pdfkit';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const outputPath = path.resolve(here, '../../Manual_de_Uso_EasyLOTOTO_v2.pdf');
+const defaultOutputPath = path.resolve(here, '../../Manual_de_Uso_EasyLOTOTO_v2.pdf');
+let outputPath = defaultOutputPath;
+
+try {
+  if (fs.existsSync(outputPath)) {
+    const fd = fs.openSync(outputPath, 'r+');
+    fs.closeSync(fd);
+  }
+} catch (e) {
+  if (e.code === 'EBUSY') {
+    outputPath = path.resolve(here, '../../Manual_de_Uso_EasyLOTOTO_v2_atualizado.pdf');
+    console.log(`Nota: Arquivo original aberto em outro aplicativo. Gerando em: ${outputPath}`);
+  }
+}
 
 // Paleta visual técnica industrial
 const C = {
@@ -48,7 +61,7 @@ const doc = new PDFDocument({
     Title: 'Manual de Uso do EasyLOTOTO v2',
     Author: 'EasyLOTOTO v2',
     Subject: 'Manual Técnico de Operação e Uso do Sistema',
-    Keywords: 'EasyLOTOTO, LOTOTO, Manual, Bloqueio, Etiquetagem, Mapa da fábrica',
+    Keywords: 'EasyLOTOTO, LOTOTO, Manual, Bloqueio, Etiquetagem',
     CreationDate: new Date(),
   },
 });
@@ -91,7 +104,7 @@ function startChapter(number, title, subtitle) {
 
 function drawSubSection(title) {
   checkSpace(36);
-  doc.font('Helvetica-Bold').fontSize(11).fillColor(C.BLUE_DARK);
+  doc.font('Helvetica-Bold').fontSize(10.5).fillColor(C.BLUE_DARK);
   doc.text(title, M, doc.y + 4, { width: CONTENT_W });
   doc.y += 4;
 }
@@ -99,7 +112,7 @@ function drawSubSection(title) {
 function drawParagraph(text, options = {}) {
   const h = doc.heightOfString(text, { width: CONTENT_W, lineGap: 3 });
   checkSpace(h + 8);
-  doc.font('Helvetica').fontSize(9.5).fillColor(C.TEXT_BODY);
+  doc.font('Helvetica').fontSize(9.2).fillColor(C.TEXT_BODY);
   doc.text(text, M, doc.y, { width: CONTENT_W, lineGap: 3, align: options.align || 'justify' });
   doc.y += options.spacing ?? 6;
 }
@@ -125,17 +138,17 @@ function drawBullet(title, text) {
 
 function drawCallout(type, title, text) {
   const styles = {
-    info: { border: C.BLUE_PRIMARY, bg: C.BLUE_LIGHT, text: C.BLUE_DARK, badge: 'INFORMAÇÃO TÉCNICA' },
-    tip: { border: C.GREEN_SUCCESS, bg: C.GREEN_LIGHT, text: C.TEXT_BODY, badge: 'RECOMENDAÇÃO OPERACIONAL' },
-    warning: { border: C.ORANGE_SIGNAL, bg: C.ORANGE_LIGHT, text: C.TEXT_BODY, badge: 'ATENÇÃO OPERACIONAL' },
-    danger: { border: C.RED_DANGER, bg: C.RED_LIGHT, text: C.TEXT_BODY, badge: 'SEGURANÇA / CONTINGÊNCIA' },
+    info: { border: C.BLUE_PRIMARY, bg: C.BLUE_LIGHT, text: C.BLUE_DARK, badge: 'INFORMAÇÃO' },
+    tip: { border: C.GREEN_SUCCESS, bg: C.GREEN_LIGHT, text: C.TEXT_BODY, badge: 'DICA DE USO' },
+    warning: { border: C.ORANGE_SIGNAL, bg: C.ORANGE_LIGHT, text: C.TEXT_BODY, badge: 'ATENÇÃO' },
+    danger: { border: C.RED_DANGER, bg: C.RED_LIGHT, text: C.TEXT_BODY, badge: 'CONTINGÊNCIA' },
   };
   const s = styles[type] || styles.info;
   const boxW = CONTENT_W;
   const textH = doc.heightOfString(text, { width: boxW - 24, lineGap: 2 });
-  const totalH = textH + 28;
+  const totalH = textH + 26;
 
-  checkSpace(totalH + 10);
+  checkSpace(totalH + 8);
   const y = doc.y;
 
   doc.roundedRect(M, y, boxW, totalH, 4).fill(s.bg);
@@ -143,20 +156,20 @@ function drawCallout(type, title, text) {
   doc.roundedRect(M, y, boxW, totalH, 4).lineWidth(0.5).strokeColor(C.GRAY_BORDER).stroke();
 
   doc.font('Helvetica-Bold').fontSize(8).fillColor(s.border);
-  doc.text(`${s.badge}: ${title.toUpperCase()}`, M + 14, y + 8, { width: boxW - 28 });
+  doc.text(`${s.badge}: ${title.toUpperCase()}`, M + 14, y + 7, { width: boxW - 28 });
 
   doc.font('Helvetica').fontSize(8.5).fillColor(s.text);
-  doc.text(text, M + 14, y + 20, { width: boxW - 28, lineGap: 2 });
+  doc.text(text, M + 14, y + 18, { width: boxW - 28, lineGap: 2 });
 
   doc.y = y + totalH + 8;
 }
 
 function drawTable(headers, rows, colWidths) {
   const totalW = CONTENT_W;
-  const rowPad = 5;
-  const headerH = 20;
+  const rowPad = 4;
+  const headerH = 18;
 
-  checkSpace(headerH + 24);
+  checkSpace(headerH + 22);
 
   let curY = doc.y;
   doc.rect(M, curY, totalW, headerH).fill(C.NAVY);
@@ -164,15 +177,15 @@ function drawTable(headers, rows, colWidths) {
   let curX = M;
   headers.forEach((h, i) => {
     const w = colWidths[i];
-    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.WHITE);
-    doc.text(h, curX + rowPad, curY + 6, { width: w - rowPad * 2, ellipsis: true });
+    doc.font('Helvetica-Bold').fontSize(8).fillColor(C.WHITE);
+    doc.text(h, curX + rowPad, curY + 5, { width: w - rowPad * 2, ellipsis: true });
     curX += w;
   });
 
   curY += headerH;
 
   rows.forEach((r, ri) => {
-    let maxCellH = 14;
+    let maxCellH = 13;
     r.forEach((cell, ci) => {
       const cellH = doc.heightOfString(String(cell), { width: colWidths[ci] - rowPad * 2, lineGap: 1 });
       if (cellH > maxCellH) maxCellH = cellH;
@@ -186,8 +199,8 @@ function drawTable(headers, rows, colWidths) {
       let hX = M;
       headers.forEach((h, i) => {
         const w = colWidths[i];
-        doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.WHITE);
-        doc.text(h, hX + rowPad, curY + 6, { width: w - rowPad * 2, ellipsis: true });
+        doc.font('Helvetica-Bold').fontSize(8).fillColor(C.WHITE);
+        doc.text(h, hX + rowPad, curY + 5, { width: w - rowPad * 2, ellipsis: true });
         hX += w;
       });
       curY += headerH;
@@ -210,22 +223,22 @@ function drawTable(headers, rows, colWidths) {
   });
 
   doc.rect(M, doc.y, totalW, curY - doc.y).lineWidth(0.6).strokeColor(C.GRAY_BORDER).stroke();
-  doc.y = curY + 10;
+  doc.y = curY + 8;
 }
 
 function drawCodeSnippet(title, code) {
   const h = doc.heightOfString(code, { width: CONTENT_W - 24, lineGap: 2 });
-  checkSpace(h + 30);
+  checkSpace(h + 28);
   const y = doc.y;
 
-  doc.roundedRect(M, y, CONTENT_W, h + 24, 4).fill(C.CODE_BG);
-  doc.font('Helvetica-Bold').fontSize(8).fillColor(C.TEXT_MUTED);
-  doc.text(title.toUpperCase(), M + 12, y + 6);
+  doc.roundedRect(M, y, CONTENT_W, h + 22, 4).fill(C.CODE_BG);
+  doc.font('Helvetica-Bold').fontSize(7.5).fillColor(C.TEXT_MUTED);
+  doc.text(title.toUpperCase(), M + 12, y + 5);
 
-  doc.font('Courier').fontSize(8.5).fillColor(C.CODE_TEXT);
-  doc.text(code, M + 12, y + 18, { width: CONTENT_W - 24, lineGap: 2 });
+  doc.font('Courier').fontSize(8).fillColor(C.CODE_TEXT);
+  doc.text(code, M + 12, y + 16, { width: CONTENT_W - 24, lineGap: 2 });
 
-  doc.y = y + h + 30;
+  doc.y = y + h + 28;
 }
 
 function drawStepWorkflow(steps) {
@@ -233,111 +246,105 @@ function drawStepWorkflow(steps) {
   const gap = 8;
   const count = steps.length;
   const boxW = (CONTENT_W - gap * (count - 1)) / count;
-  const boxH = 50;
+  const boxH = 48;
   const y = doc.y;
 
   steps.forEach((step, idx) => {
     const x = M + idx * (boxW + gap);
     doc.roundedRect(x, y, boxW, boxH, 4).fill(C.GRAY_BOX).strokeColor(C.GRAY_BORDER).lineWidth(0.6).stroke();
 
-    // Badge numérico
     doc.roundedRect(x + 6, y + 6, 16, 14, 2).fill(C.BLUE_PRIMARY);
     doc.font('Helvetica-Bold').fontSize(8).fillColor(C.WHITE).text(String(idx + 1), x + 6, y + 9, { width: 16, align: 'center' });
 
-    // Título do passo
     doc.font('Helvetica-Bold').fontSize(8).fillColor(C.TEXT_TITLE).text(step.title, x + 26, y + 8, { width: boxW - 30, lineBreak: false, ellipsis: true });
-
-    // Descrição
-    doc.font('Helvetica').fontSize(7.5).fillColor(C.TEXT_BODY).text(step.desc, x + 6, y + 24, { width: boxW - 12, lineGap: 1 });
+    doc.font('Helvetica').fontSize(7.5).fillColor(C.TEXT_BODY).text(step.desc, x + 6, y + 23, { width: boxW - 12, lineGap: 1 });
   });
 
   doc.y = y + boxH + 10;
 }
 
 // =========================================================================
-// 1. CAPA
+// 1. CAPA (SEM FRASES DE EFEITO, COM CRÉDITOS CLAROS NO RODAPÉ)
 // =========================================================================
 function buildCoverPage() {
-  doc.rect(0, 0, PAGE_W, 260).fill(C.NAVY);
-  doc.rect(0, 255, PAGE_W, 5).fill(C.ORANGE_SIGNAL);
-
-  doc.roundedRect(M, 42, 140, 22, 11).fill(C.BLUE_PRIMARY);
-  doc.font('Helvetica-Bold').fontSize(9).fillColor(C.WHITE);
-  doc.text('MANUAL TÉCNICO OFICIAL', M + 10, 48, { lineBreak: false });
+  doc.rect(0, 0, PAGE_W, 200).fill(C.NAVY);
+  doc.rect(0, 195, PAGE_W, 5).fill(C.ORANGE_SIGNAL);
 
   doc.font('Helvetica-Bold').fontSize(32).fillColor(C.WHITE);
-  doc.text('EasyLOTOTO v2', M, 80);
+  doc.text('EasyLOTOTO v2', M, 65);
 
   doc.font('Helvetica').fontSize(14).fillColor('#94A3B8');
-  doc.text('Manual de Uso do EasyLOTOTO v2 — Operação e Configuração', M, 122);
+  doc.text('Manual de Uso do EasyLOTOTO v2 — Operação e Configuração', M, 108);
 
-  doc.roundedRect(M, 156, CONTENT_W, 56, 6).fill(C.BLUE_DARK);
-  doc.font('Helvetica-Bold').fontSize(9).fillColor(C.ORANGE_SIGNAL);
-  doc.text('IDENTIFICAÇÃO DE ABERTURA: "MAPA DA FÁBRICA"', M + 14, 166);
-  doc.font('Helvetica').fontSize(8.5).fillColor('#E2E8F0');
-  doc.text(
-    'Ao abrir o sistema, a interface inicial exibe o título "Mapa da fábrica" (acompanhado da legenda "Mapa de bloqueios LOTOTO"), fornecendo visão espacial imediata dos pontos de bloqueio e desenergização ativos na planta.',
-    M + 14,
-    180,
-    { width: CONTENT_W - 28, lineGap: 2 }
-  );
+  doc.font('Helvetica').fontSize(9.5).fillColor('#E2E8F0');
+  doc.text('Sistema simples para gestão visual de LOTOTO da fábrica.', M, 134);
 
-  doc.y = 285;
+  doc.y = 225;
 
   doc.font('Helvetica-Bold').fontSize(12).fillColor(C.TEXT_TITLE);
-  doc.text('Visão Geral e Propósito Deste Manual', M, doc.y);
+  doc.text('Apresentação do Sistema', M, doc.y);
   doc.y += 6;
 
   drawParagraph(
-    'O EasyLOTOTO v2 é a solução técnica de ponta desenvolvida para garantir rigor, agilidade e confiabilidade na gestão visual de Bloqueio, Etiquetagem e Teste de Energia Perigosa (LOTOTO - Lockout, Tagout, Tryout). Este manual descreve minuciosamente todos os módulos, comandos de tela, regras de negócio e procedimentos de segurança da plataforma.'
+    'O EasyLOTOTO v2 é um sistema simples desenvolvido para a gestão visual de bloqueios e etiquetagens de energia perigosa (LOTOTO - Lockout, Tagout, Tryout) na fábrica. Este manual descreve o funcionamento de seus módulos, telas, ferramentas e procedimentos de uso.'
   );
 
   drawParagraph(
-    'Concebido para operar em ambiente industrial com máxima autonomia, o sistema roda de maneira independente na rede local da fábrica, eliminando riscos decorrentes de oscilações ou quedas de internet externa. As coordenadas espaciais das plantas fabris, os registros de intervenção e os parâmetros de segurança são processados localmente com altíssima velocidade.'
+    'Projetado para operar em ambiente offline, o sistema roda localmente na infraestrutura da fábrica de forma autônoma. As plantas fabris, os registros de intervenção e os parâmetros de segurança são processados localmente com agilidade, sem necessidade de conexão externa com a internet.'
   );
 
-  checkSpace(145);
-  const metaY = doc.y + 10;
-  doc.roundedRect(M, metaY, CONTENT_W, 110, 6).fill(C.GRAY_BG).strokeColor(C.GRAY_BORDER).lineWidth(0.8).stroke();
+  checkSpace(130);
+  const metaY = doc.y + 8;
+  doc.roundedRect(M, metaY, CONTENT_W, 95, 6).fill(C.GRAY_BG).strokeColor(C.GRAY_BORDER).lineWidth(0.8).stroke();
 
-  doc.font('Helvetica-Bold').fontSize(9.5).fillColor(C.BLUE_PRIMARY);
-  doc.text('FICHA TÉCNICA DO SISTEMA', M + 14, metaY + 12);
+  doc.font('Helvetica-Bold').fontSize(9).fillColor(C.BLUE_PRIMARY);
+  doc.text('FICHA TÉCNICA DO SISTEMA', M + 14, metaY + 10);
 
   const colW = (CONTENT_W - 28) / 2;
-  const l1Y = metaY + 30;
+  const l1Y = metaY + 26;
 
   doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Nome do Sistema:', M + 14, l1Y);
-  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('EasyLOTOTO v2', M + 130, l1Y);
+  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('EasyLOTOTO v2', M + 115, l1Y);
 
-  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Título de Abertura / Janela:', M + 14, l1Y + 16);
-  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('Mapa da fábrica (Mapa de bloqueios LOTOTO)', M + 130, l1Y + 16);
+  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Finalidade:', M + 14, l1Y + 16);
+  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('Gestão Visual de Bloqueios (LOTOTO)', M + 115, l1Y + 16);
 
-  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Motor de Dados Local:', M + 14, l1Y + 32);
-  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('SQLite WAL Engine (server/data/factory.db)', M + 130, l1Y + 32);
+  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Banco de Dados:', M + 14, l1Y + 32);
+  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('SQLite WAL (server/data/factory.db)', M + 115, l1Y + 32);
 
-  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Conta de Acesso Seguro:', M + 14, l1Y + 48);
-  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('recovery (Acesso Seguro de Contingência)', M + 130, l1Y + 48);
+  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Conta de Contingência:', M + 14, l1Y + 48);
+  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('recovery (Acesso Seguro)', M + 115, l1Y + 48);
 
   const rX = M + colW + 14;
-  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Arquitetura do Cliente:', rX, l1Y);
-  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('React SPA + Vite + Canvas Interativo', rX + 115, l1Y);
+  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Tecnologia da Interface:', rX, l1Y);
+  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('React SPA + Canvas Interativo', rX + 110, l1Y);
 
-  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Protocolo de Sincronismo:', rX, l1Y + 16);
-  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('Código Visual Dinâmico / QR Streaming', rX + 115, l1Y + 16);
+  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Sincronização:', rX, l1Y + 16);
+  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('Código Visual Dinâmico / QR Streaming', rX + 110, l1Y + 16);
 
-  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Conformidade Normativa:', rX, l1Y + 32);
-  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('NR-10, NR-12, OSHA 1910.147 (LOTOTO)', rX + 115, l1Y + 32);
+  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Padrão Normativo:', rX, l1Y + 32);
+  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('NR-10, NR-12, OSHA 1910.147 (LOTOTO)', rX + 110, l1Y + 32);
 
   doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Data desta Versão:', rX, l1Y + 48);
-  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('Novembro / 2026', rX + 115, l1Y + 48);
+  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('Novembro / 2026', rX + 110, l1Y + 48);
 
-  doc.y = metaY + 124;
+  // Rodapé da primeira página com os créditos solicitados
+  const oldBottom = doc.page.margins.bottom;
+  doc.page.margins.bottom = 0;
+  const credY = PAGE_H - 85;
+  doc.moveTo(M, credY).lineTo(PAGE_W - M, credY).lineWidth(0.6).strokeColor(C.GRAY_LINE).stroke();
 
-  drawCallout(
-    'info',
-    'Público-Alvo e Abrangência',
-    'Este documento atende a Operadores de Campo, Eletricistas, Mecânicos Industriais, Supervisores de Manutenção, Engenheiros de Segurança do Trabalho (SESMT) e Administradores de Infraestrutura responsáveis pela integridade do EasyLOTOTO v2.'
-  );
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(C.BLUE_PRIMARY);
+  doc.text('CRÉDITOS DO PROJETO', M, credY + 6);
+
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(C.TEXT_TITLE).text('Idealizado por:', M, credY + 18, { lineBreak: false });
+  doc.font('Helvetica').fontSize(8).fillColor(C.TEXT_BODY).text('Hadmilton de Melos Cordeiro', M + 65, credY + 18, { lineBreak: false });
+  doc.font('Helvetica-Oblique').fontSize(7.5).fillColor(C.TEXT_MUTED).text(' — Coordenador de Manutenção Mecânica / Supervisor de Estágio', M + 180, credY + 18);
+
+  doc.font('Helvetica-Bold').fontSize(8).fillColor(C.TEXT_TITLE).text('Desenvolvimento e implementação:', M, credY + 32, { lineBreak: false });
+  doc.font('Helvetica').fontSize(8).fillColor(C.TEXT_BODY).text('Rodrigo Lopes', M + 155, credY + 32, { lineBreak: false });
+  doc.font('Helvetica-Oblique').fontSize(7.5).fillColor(C.TEXT_MUTED).text(' — Estagiário de Engenharia de Software', M + 215, credY + 32);
+  doc.page.margins.bottom = oldBottom;
 }
 
 // =========================================================================
@@ -345,7 +352,6 @@ function buildCoverPage() {
 // =========================================================================
 function reserveTocPage() {
   doc.addPage();
-  // Ficará em branco durante o primeiro passo e será preenchida ao final
 }
 
 // =========================================================================
@@ -358,32 +364,26 @@ function buildChapters() {
   startChapter(
     '01',
     'Visão Geral e Arquitetura do EasyLOTOTO v2',
-    'Conceito de mapa visual, autonomia local e integridade de dados'
+    'Mapeamento visual, operação offline e integridade de dados'
   );
 
   drawParagraph(
-    'O EasyLOTOTO v2 foi concebido para revolucionar a forma como o chão de fábrica visualiza e controla o isolamento de energias perigosas. Em fábricas modernas com centenas de válvulas, disjuntores, prensas e motores elétricos, o gerenciamento de bloqueios apenas por livros físicos ou planilhas estáticas gera lentidão e risco de erro humano. O EasyLOTOTO v2 resolve esse desafio projetando o estado real de cada cadeado diretamente sobre a planta arquitetônica da fábrica.'
+    'O EasyLOTOTO v2 foi desenvolvido para auxiliar o chão de fábrica a visualizar e controlar o bloqueio de energias perigosas. Ele posiciona os registros de isolamento diretamente sobre a representação gráfica das plantas industriais, facilitando a identificação imediata de equipamentos travados.'
   );
 
-  drawSubSection('1.1. Arquitetura 100% Autônoma e Resiliente');
+  drawSubSection('1.1. Arquitetura em Ambiente Offline');
   drawParagraph(
-    'Projetado para operar em ambientes industriais com restrições severas de rede ou sem acesso à nuvem, o EasyLOTOTO v2 não possui dependência de serviços remotos para sua operação diária. Todo o ecossistema é mantido localmente:'
+    'Projetado para operar em ambiente offline, o sistema não depende de conexão contínua com a internet. Toda a sua infraestrutura funciona de maneira autônoma na rede local da fábrica:'
   );
 
-  drawBullet('Servidor Node.js Embutido', 'O backend roda como serviço leve de alta disponibilidade em Express, gerenciando rotas REST, uploads e transações.');
-  drawBullet('Banco de Dados SQLite em Modo WAL', 'A persistência dos dados (plantas, áreas, registros, usuários, KPIs e auditoria) reside no arquivo server/data/factory.db. O modo Write-Ahead Logging (WAL) assegura leituras simultâneas sem concorrência de bloqueio de escrita.');
-  drawBullet('Armazenamento Local de Plantas', 'Os desenhos e imagens de layout fabril residem na pasta server/data/uploads/, garantindo que as plantas estejam sempre acessíveis mesmo que a rede corporativa caia.');
-  drawBullet('Cliente Web React SPA', 'A aplicação gráfica é executada no navegador do cliente, aproveitando aceleração de hardware para zoom e navegação espacial sem sobrecarregar o servidor.');
+  drawBullet('Servidor Local', 'Executa em Node.js com Express no computador ou servidor local, atendendo requisições na porta 3001.');
+  drawBullet('Banco de Dados SQLite em Modo WAL', 'Os dados (plantas, áreas, registros, usuários, KPIs e auditoria) são salvos no arquivo server/data/factory.db com alta confiabilidade.');
+  drawBullet('Armazenamento Local de Imagens', 'As plantas enviadas são salvas na pasta server/data/uploads/, garantindo acesso imediato.');
+  drawBullet('Interface React SPA', 'A aplicação gráfica roda no navegador do usuário, com renderização via Canvas para navegação suave em plantas industriais.');
 
-  drawSubSection('1.2. O Conceito "Mapa da Fábrica"');
+  drawSubSection('1.2. Gestão Visual da Fábrica');
   drawParagraph(
-    'Ao abrir a aplicação, a primeira tela visível traz o título destacado "Mapa da fábrica" e o subtítulo "Mapa de bloqueios LOTOTO". Este módulo é a central de comando da fábrica, onde operadores e supervisores podem inspecionar num relance visual se uma linha ou máquina está segura para intervenção.'
-  );
-
-  drawCallout(
-    'info',
-    'Aderência Normativa LOTOTO',
-    'O sistema implementa o ciclo completo Lockout (Travamento físico), Tagout (Etiquetagem informativa com identificação do responsável) e Tryout (Verificação de energia zero), atendendo às exigências da NR-10, NR-12 e OSHA 1910.147.'
+    'A tela principal do EasyLOTOTO v2 exibe a planta da fábrica com as áreas demarcadas. A presença de cadeados e indicadores visuais permite que operadores e equipes de manutenção vejam rapidamente se uma máquina está bloqueada para intervenção.'
   );
 
   // -----------------------------------------------------------------------
@@ -392,52 +392,52 @@ function buildChapters() {
   startChapter(
     '02',
     'Acesso, Segurança e Conta de Recuperação',
-    'Controle de privilégios, contingência administrativa e proteção contra intrusão'
+    'Perfis de acesso, proteção contra tentativas inválidas e conta recovery'
   );
 
   drawParagraph(
-    'O EasyLOTOTO v2 implementa autenticação baseada em sessões seguras e perfis de permissão calibrados para cada função na fábrica, prevenindo acessos indevidos e garantindo rastreabilidade absoluta.'
+    'O sistema controla os acessos através de sessões seguras e perfis de permissão bem definidos.'
   );
 
   drawSubSection('2.1. Primeiro Acesso (/setup)');
   drawParagraph(
-    'Ao iniciar um banco de dados recém-instalado, o sistema reconhece a ausência de usuários e redireciona para a tela de Primeiro Acesso. Nesse formulário, o usuário cadastra o administrador principal do sistema informando login, nome e senha mestra (com requisito de complexidade mínima de 8 caracteres).'
+    'Quando o sistema inicia com um banco de dados novo, ele exibe a tela de Primeiro Acesso para criar o administrador inicial da fábrica, definindo login, nome e senha mestra (mínimo de 8 caracteres).'
   );
 
   drawSubSection('2.2. A Conta de Recuperação Segura (recovery / 1234Abcd)');
   drawParagraph(
-    'Para salvaguardar a continuidade operacional da fábrica caso as credenciais do administrador principal sejam esquecidas ou perdidas, o EasyLOTOTO v2 implementa uma conta administradora de contingência automática:'
+    'Para evitar a perda de acesso caso a senha do administrador seja esquecida, o EasyLOTOTO v2 mantém uma conta de contingência padrão:'
   );
 
-  drawBullet('Criação Automatizada', 'No instante em que o administrador cria sua conta no Primeiro Acesso, o sistema cria simultaneamente o usuário "recovery" com a senha inicial "1234Abcd" e perfil pleno de admin.');
-  drawBullet('Invisibilidade na Listagem de Usuários', 'A conta "recovery" é expressamente omitida da rota GET /api/users e da tela de gestão de usuários. Usuários comuns e operadores não visualizam essa conta na interface.');
-  drawBullet('Blindagem contra Alteração e Exclusão', 'A conta "recovery" não pode ser modificada por outros usuários, não pode ser deletada via sistema e sua senha fixa ("1234Abcd") não pode ser alterada pela tela de troca de senha.');
-  drawBullet('Auto-regeneração no Login', 'Ao submeter o login "recovery", o servidor valida e assegura que a conta exista no banco com status ativo e papel de administrador.');
+  drawBullet('Criação Automática', 'Ao criar o primeiro usuário no Primeiro Acesso, o sistema cria automaticamente a conta "recovery" com perfil de admin e senha "1234Abcd".');
+  drawBullet('Invisível na Lista de Usuários', 'A conta "recovery" não aparece na lista de usuários (GET /api/users) para manter a tela limpa e segura.');
+  drawBullet('Protegida contra Exclusão e Alteração', 'Não é possível excluir, alterar o perfil ou trocar a senha padrão da conta recovery via interface.');
+  drawBullet('Garantia de Login', 'Se o usuário digitar "recovery" no login, o servidor valida e assegura a existência da conta com sua senha padrão.');
 
   drawCallout(
     'danger',
-    'Instruções de Guarda da Senha de Recuperação',
-    'O acesso via usuário "recovery" (senha "1234Abcd") deve ser tratado como procedimento de contingência industrial. Em caso de bloqueio das contas corporativas, acione a conta recovery para acessar a aba "Usuários" e restabelecer o acesso das contas dos operadores.'
+    'Guarda da Senha de Contingência',
+    'A conta "recovery" com senha "1234Abcd" serve como chave mestra de segurança. Se as senhas dos administradores forem perdidas, faça login com ela para redefinir as senhas dos usuários normais.'
   );
 
-  drawSubSection('2.3. Matriz de Perfis e Permissões');
-  const permHeaders = ['Recurso / Módulo', 'Viewer (Visualizador)', 'Operator (Operador)', 'Admin (Administrador)'];
+  drawSubSection('2.3. Matriz de Perfis');
+  const permHeaders = ['Módulo / Ação', 'Viewer (Visualizador)', 'Operator (Operador)', 'Admin (Administrador)'];
   const permRows = [
-    ['Visualizar Mapa da fábrica e áreas', 'Sim', 'Sim', 'Sim'],
-    ['Inspecionar detalhes dos bloqueios ativos', 'Sim', 'Sim', 'Sim'],
-    ['Cadastrar novos bloqueios e dar baixa', 'Não', 'Sim', 'Sim'],
-    ['Importar planilhas Excel (.xlsx / .csv)', 'Não', 'Sim', 'Sim'],
-    ['Exportar dados para Excel e relatórios', 'Sim', 'Sim', 'Sim'],
-    ['Editar plantas e demarcar áreas vetoriais', 'Não', 'Não', 'Sim'],
-    ['Gerenciar campos customizados e KPIs', 'Não', 'Não', 'Sim'],
-    ['Gerenciar usuários, senhas e permissões', 'Não', 'Não', 'Sim'],
-    ['Backups, Sincronização e Área de Risco', 'Não', 'Não', 'Sim'],
+    ['Visualizar mapa e áreas da fábrica', 'Sim', 'Sim', 'Sim'],
+    ['Ver detalhes dos bloqueios ativos', 'Sim', 'Sim', 'Sim'],
+    ['Criar registros e dar baixa de desbloqueio', 'Não', 'Sim', 'Sim'],
+    ['Importar planilhas de bloqueios (Excel/CSV)', 'Não', 'Sim', 'Sim'],
+    ['Exportar registros em Excel e PDF', 'Sim', 'Sim', 'Sim'],
+    ['Editar plantas e desenhar novas áreas', 'Não', 'Não', 'Sim'],
+    ['Criar campos personalizados e fórmulas de KPIs', 'Não', 'Não', 'Sim'],
+    ['Cadastrar e gerenciar usuários', 'Não', 'Não', 'Sim'],
+    ['Gerenciar backups, sincronização e Área de Risco', 'Não', 'Não', 'Sim'],
   ];
   drawTable(permHeaders, permRows, [160, 110, 110, 135]);
 
-  drawSubSection('2.4. Proteção contra Ataques de Força Bruta e Desafio CAPTCHA');
+  drawSubSection('2.4. Proteção contra Tentativas Inválidas de Login (CAPTCHA)');
   drawParagraph(
-    'Para neutralizar tentativas de adivinhação de senhas, o sistema conta com rate-limiting exponencial: a partir de 3 tentativas consecutivas com senha inválida, a interface ativa um desafio visual CAPTCHA alfanumérico obrigatório gerado no servidor. A partir de 5 erros, a conta sofre bloqueio temporal progressivo.'
+    'Após 3 erros consecutivos de senha, a tela de login passa a exigir a digitação obrigatória de um código de verificação (CAPTCHA). A partir de 5 erros, aplica-se tempo de espera progressivo para novas tentativas.'
   );
 
   // -----------------------------------------------------------------------
@@ -446,62 +446,59 @@ function buildChapters() {
   startChapter(
     '03',
     'Interface Geral e Navegação Responsiva',
-    'Ergonomia visual, operação touchable e componentes integrados'
+    'Navegação entre abas, adaptação para telas touch e modais do sistema'
   );
 
   drawParagraph(
-    'O EasyLOTOTO v2 foi desenhado para ser operado tanto em computadores de mesa quanto em tablets industriais e totens de autoatendimento instalados no piso de fábrica.'
+    'A interface do EasyLOTOTO v2 foi pensada para ser prática tanto em computadores de escritório quanto em tablets e totens com telas sensíveis ao toque.'
   );
 
-  drawSubSection('3.1. Barra Superior e Identidade Institucional');
+  drawSubSection('3.1. Barra de Navegação');
   drawParagraph(
-    'No topo da tela, a barra superior apresenta o selo oficial "Mapa da fábrica", atalhos para os módulos operacionais (Dashboard, Registros, Relatórios, Plantas e Áreas, Campos e KPIs, Configurações, Usuários, Backup), o nome do usuário ativo e o botão de encerramento seguro de sessão (Logout).'
+    'A barra superior exibe o nome do sistema EasyLOTOTO v2, links para os módulos operacionais (Dashboard, Registros, Relatórios, Plantas e Áreas, Campos e KPIs, Configurações, Usuários, Backup), o nome do usuário logado e botão de saída.'
   );
 
-  drawSubSection('3.2. Adaptação para Telas Sensíveis ao Toque (Touchable)');
-  drawParagraph(
-    'Em ambientes fabris, o uso de luvas ou telas táteis com resoluções atípicas impõe desafios ergonômicos específicos. A versão v2 recebeu aprimoramentos cruciais:'
-  );
-  drawBullet('Eliminação de Rolagem Horizontal', 'As barras de ação de telas densas (como a aba de Registros) foram reorganizadas com empacotamento elástico (flex-wrap), garantindo que os botões "Novo registro" e "Alterações recentes" nunca causem scroll horizontal na janela.');
-  drawBullet('Retenção de Posição de Rolagem (Scroll Persistence)', 'Nos menus de navegação de configurações, ao rolar a lista de abas e selecionar um item, a interface mantém a posição exata da rolagem, impedindo o salto indesejado para o topo.');
-  drawBullet('Modais Nativos do Sistema', 'A aplicação não utiliza diálogos nativos do navegador (confirm e alert), os quais são de difícil manuseio em telas touch. Todas as mensagens, formulários de criação e confirmações de exclusão abrem modais estilizados com botões amplos e legíveis.');
+  drawSubSection('3.2. Ajustes para Dispositivos Touchable (Telas Touch)');
+  drawBullet('Sem Rolagem Horizontal', 'Ajustes no layout elástico impedem que telas com botões de ação fiquem com barra de rolagem horizontal em telas menores.');
+  drawBullet('Manutenção do Scroll do Menu', 'Ao rolar o menu de configurações e clicar em um item, o menu não pula para o início, preservando a posição em que o usuário estava navegando.');
+  drawBullet('Modais do Próprio Sistema', 'Todas as caixas de alerta, confirmação e formulários usam caixas de diálogo integradas, sem travamentos do navegador.');
 
   // -----------------------------------------------------------------------
   // CAPÍTULO 4
   // -----------------------------------------------------------------------
   startChapter(
     '04',
-    'Módulo: Mapa da Fábrica (Visualizador Interativo)',
-    'Navegação espacial, sinalização de cadeados e faixas etárias de bloqueio'
+    'Módulo: Visualizador de Planta Interativo',
+    'Controles de zoom, pan, sinalização de cadeados e detalhes'
   );
 
   drawParagraph(
-    'O módulo "Mapa da fábrica" é a espinha dorsal operacional do EasyLOTOTO v2. Ele transforma desenhos industriais bidimensionais em uma maquete digital viva do estado de segurança da planta.'
+    'O visualizador interativo mostra o mapa da fábrica com a localização de cada equipamento e os bloqueios em vigor.'
   );
 
-  drawSubSection('4.1. Controles de Visualização Espacial');
-  drawBullet('Arrastar / Pan', 'Pressione e segure o botão esquerdo do mouse (ou arraste com o dedo na tela touch) sobre qualquer área livre da planta para movimentar o mapa.');
-  drawBullet('Zoom Suave Contínuo', 'Gire a roda do mouse (scroll wheel) ou faça o gesto de pinça no touch para ampliar ou reduzir o zoom, com foco ancorado na posição do cursor.');
-  drawBullet('Botoeira de Zoom', 'Botões dedicados no canto inferior da tela permitem aplicar zoom in (+), zoom out (-) e restaurar o enquadramento completo da planta com um toque.');
-  drawBullet('Foco Rápido por Duplo-clique', 'Dê um duplo-clique sobre qualquer equipamento demarcado para aproximar e centralizar a câmera imediatamente sobre ele.');
+  drawSubSection('4.1. Controles de Visualização');
+  drawBullet('Pan (Arrastar)', 'Clique e arraste sobre o fundo da tela para mover o mapa.');
+  drawBullet('Zoom', 'Gire a roda do mouse ou use os botões (+) e (-) para aproximar ou afastar.');
+  drawBullet('Enquadramento', 'O botão de ajustar centraliza a planta inteira na tela.');
+  drawBullet('Duplo-clique', 'Dois cliques sobre uma área aproximam o foco diretamente sobre ela.');
 
-  drawSubSection('4.2. Cadeados LOTOTO Visuais e Faixas de Idade');
+  drawSubSection('4.2. Cadeados LOTOTO e Idade do Bloqueio');
   drawParagraph(
-    'Quando há um bloqueio ativo associado a uma área, um símbolo de Cadeado LOTOTO é desenhado no centro da área. O cadeado traz um contador numérico quando múltiplos bloqueios coexistem no mesmo equipamento, e sua tonalidade reflete a idade da intervenção:'
+    'Quando há um bloqueio ativo associado à área, aparece um ícone de cadeado. Se houver mais de um bloqueio no mesmo local, um número indica a quantidade total. A cor do cadeado indica o tempo de bloqueio:'
   );
 
-  const stageHeaders = ['Faixa de Duração', 'Cor Indicativa', 'Classificação Operacional'];
+  const stageHeaders = ['Faixa de Duração', 'Cor Indicativa', 'Situação'];
   const stageRows = [
-    ['0 a 12 horas', 'Azul Primário (#2563EB)', 'Bloqueio de turno normal em andamento'],
-    ['12 a 24 horas', 'Amarelo Alerta (#D97706)', 'Bloqueio estendido / Transparência de turno'],
-    ['24 a 48 horas', 'Laranja Atenção (#EA580C)', 'Manutenção de médio prazo / Parada programada'],
-    ['Acima de 48 horas', 'Vermelho Crítico (#DC2626)', 'Bloqueio prolongado / Necessidade de auditoria'],
+    ['0 a 12 horas', 'Azul (#2563EB)', 'Bloqueio recente / Turno atual'],
+    ['12 a 24 horas', 'Amarelo (#D97706)', 'Bloqueio estendido / Passagem de turno'],
+    ['24 a 48 horas', 'Laranja (#EA580C)', 'Manutenção prolongada'],
+    ['Acima de 48 horas', 'Vermelho (#DC2626)', 'Bloqueio antigo / Pendência crítica'],
   ];
   drawTable(stageHeaders, stageRows, [130, 140, 245]);
 
-  drawSubSection('4.3. Gaveta Lateral de Detalhes do Bloqueio');
+  drawSubSection('4.3. Detalhes ao Clicar');
   drawParagraph(
-    'Ao clicar sobre um cadeado ou sobre a área de uma máquina, uma gaveta lateral desliza suavemente na tela exibindo o resumo detalhado: código da máquina, setor, crachá/nome de quem efetuou o bloqueio, data e hora de início, motivo e quantidade física de cadeados instalados.'
+    'Ao clicar no cadeado ou na área, abre-se a gaveta lateral informando: equipamento, setor, responsável pelo bloqueio, data e hora de colocação, motivo e quantidade de cadeados instalados.'
   );
 
   // -----------------------------------------------------------------------
@@ -510,34 +507,31 @@ function buildChapters() {
   startChapter(
     '05',
     'Módulo: Plantas e Áreas (Editor Vetorial)',
-    'Desenho de áreas, alinhamento magnético, multi-seleção e histórico Ctrl+Z'
+    'Desenho de áreas, alinhamento magnético, multi-seleção e histórico'
   );
 
   drawParagraph(
-    'O editor vetorial do EasyLOTOTO v2 disponibiliza ferramentas de precisão para demarcação de máquinas e setores sobre imagens de plantas industriais (PNG, JPG, SVG).'
+    'O editor permite importar imagens de plantas industriais e demarcar sobre elas as áreas e equipamentos da fábrica.'
   );
 
-  drawSubSection('5.1. Ferramentas de Criação de Áreas');
-  drawBullet('Criar Polígono', 'Permite traçar perímetros complexos vértice a vértice. Ao clicar sucessivamente nos cantos da máquina e retornar ao ponto inicial (ou dar duplo-clique), a área se fecha.');
-  drawBullet('Criar Retângulo', 'Clique e arraste entre os cantos opostos para criar delimitações retangulares com geometria perfeita.');
-  drawBullet('Pré-visualização Precisa', 'Durante a criação, o placeholder de auxílio visual acompanha fielmente a posição do cursor sem desvios angulares ou de escala.');
+  drawSubSection('5.1. Ferramentas de Desenho');
+  drawBullet('Criar Polígono', 'Clique para inserir pontos contornando o equipamento. Ao clicar no ponto inicial ou dar duplo-clique, o polígono é finalizado.');
+  drawBullet('Criar Retângulo', 'Clique e arraste entre os cantos opostos para desenhar um retângulo.');
+  drawBullet('Placeholder Alinhado', 'Durante o desenho, a forma de pré-visualização acompanha com precisão a posição do mouse.');
 
-  drawSubSection('5.2. Alinhamento Magnético Inteligente (Snapping)');
+  drawSubSection('5.2. Alinhamento Magnético');
   drawParagraph(
-    'O editor conta com um recurso de atração magnética leve entre vértices e linhas ortogonais. Isso garante que áreas contíguas fiquem perfeitamente alinhadas sem esforço manual. Na barra de ferramentas do editor, o botão "Magnético: Ativado / Desativado" permite ligar ou desligar essa assistência a qualquer momento.'
+    'Ao mover os pontos de uma área, o sistema atrai suavemente o vértice para alinhá-lo com linhas horizontais e verticais próximas, facilitando o ajuste. O botão "Magnético: Ativado / Desativado" permite desligar esse auxílio quando for necessário fazer ajustes livres.'
   );
 
   drawSubSection('5.3. Seleção Múltipla com Tecla [CTRL]');
-  drawParagraph(
-    'Para gerenciar conjuntos de máquinas com agilidade, o editor implementa seleção múltipla avançada:'
-  );
-  drawBullet('Comando', 'Segure a tecla [CTRL] e clique sobre múltiplas áreas no mapa ou na lista.');
-  drawBullet('Destaque Luminescente', 'Todas as áreas selecionadas recebem um contorno fluorescente de alta visibilidade com marcadores destacados nos vértices, distinguindo-as com clareza dos demais elementos.');
-  drawBullet('Edição em Lote Contextual', 'Ao selecionar múltiplos elementos, as opções individuais irrelevantes no topo são ocultadas, abrindo diretamente a seção comum "Informações mostradas ao clicar no cadeado". As alterações de campos visíveis aplicam-se a todas as áreas selecionadas de uma só vez.');
+  drawBullet('Como Usar', 'Segure a tecla [CTRL] e clique sobre várias áreas no mapa ou na lista.');
+  drawBullet('Destaque Visual', 'As áreas selecionadas recebem contorno destacado para não confundir com os demais itens.');
+  drawBullet('Edição em Lote', 'Ao selecionar múltiplos itens, a barra lateral oculta informações individuais e foca apenas nas configurações em comum ("Informações mostradas ao clicar no cadeado").');
 
-  drawSubSection('5.4. Histórico de Edição: Desfazer (Ctrl+Z) e Refazer (Ctrl+Y)');
+  drawSubSection('5.4. Desfazer (Ctrl+Z) e Refazer (Ctrl+Y)');
   drawParagraph(
-    'O editor registra até 10 etapas consecutivas de ações em sua memória. Erros de movimentação de vértices, exclusões acidentais ou alterações de tamanho podem ser revertidos instantaneamente pelo atalho Ctrl + Z (ou avançados com Ctrl + Y), além dos botões dedicados na barra de ferramentas.'
+    'O editor guarda um histórico de pelo menos 10 passos. Use Ctrl + Z para desfazer uma alteração ou Ctrl + Y para avançar novamente, prevenindo perdas acidentais durante a edição.'
   );
 
   // -----------------------------------------------------------------------
@@ -550,16 +544,16 @@ function buildChapters() {
   );
 
   drawParagraph(
-    'A aba Registros reúne a totalidade dos eventos de isolamento de energia da fábrica, servindo como o livro eletrônico oficial de bloqueios e desenergizações.'
+    'A aba Registros reúne o histórico completo de bloqueios de energia da fábrica.'
   );
 
-  drawSubSection('6.1. Cadastro e Baixa de Bloqueios');
-  drawBullet('Novo Registro', 'Acionado pelo botão superior "Novo registro". Permite selecionar o equipamento, setor, técnico responsável, data/hora da colocação do cadeado e o motivo do bloqueio.');
-  drawBullet('Baixa / Desbloqueio', 'Ao concluir a atividade de manutenção e realizar o teste de liberação (Tryout), o operador edita o registro e informa a "Data de desbloqueio". O sistema remove o cadeado do mapa imediatamente e arquiva o registro como concluído.');
+  drawSubSection('6.1. Cadastro e Baixa de Bloqueio');
+  drawBullet('Novo Registro', 'Clique em "Novo registro" para informar o equipamento, setor, técnico que realizou o bloqueio, data/hora e o motivo da intervenção.');
+  drawBullet('Baixa de Bloqueio', 'Ao finalizar a manutenção, edite o registro e preencha a "Data de desbloqueio". O cadeado da máquina sai da tela imediatamente e o registro passa a constar como concluído.');
 
-  drawSubSection('6.2. Filtros e Consulta');
+  drawSubSection('6.2. Filtros e Operações em Massa');
   drawParagraph(
-    'A tabela de registros conta com caixa de busca rápida por texto, filtros por setor, equipamento e status ("Todos os registros" ou "Somente bloqueios ativos"). O painel "Alterações recentes" permite consultar as movimentações realizadas nas últimas horas para agilizar trocas de turno.'
+    'É possível buscar por texto, filtrar por setor, equipamento e status ("Todos os registros" ou "Somente ativos"). Administradores podem selecionar vários registros e excluí-los em massa com confirmação.'
   );
 
   // -----------------------------------------------------------------------
@@ -567,29 +561,29 @@ function buildChapters() {
   // -----------------------------------------------------------------------
   startChapter(
     '07',
-    'Módulo: Importações de Planilhas Excel',
-    'Integração em lote, mapeamento de colunas e salvamento de perfis'
+    'Módulo: Importações de Dados Externos',
+    'Carga de bloqueios existentes provenientes de SAP, Excel ou Poka'
   );
 
   drawParagraph(
-    'Para plantas que gerenciam ordens de serviço no SAP, TOTVS ou Excel, o EasyLOTOTO v2 oferece um módulo de importação robusto com validação prévia.'
+    'O objetivo do módulo de importação é permitir carregar dados externos de bloqueios existentes no sistema, como planilhas provenientes do SAP, Excel ou Poka, consolidando as intervenções em uma interface visual unificada.'
   );
 
   drawStepWorkflow([
-    { title: 'Upload', desc: 'Carregue o arquivo .xlsx ou .csv no sistema.' },
-    { title: 'Mapeamento', desc: 'Vincule as colunas da planilha aos campos LOTOTO.' },
-    { title: 'Validação', desc: 'Inspecione a prévia e cheque inconsistências.' },
-    { title: 'Gravação', desc: 'Grave os registros com prevenção de duplicação.' },
+    { title: 'Upload', desc: 'Envie o arquivo .xlsx ou .csv com os bloqueios.' },
+    { title: 'Colunas', desc: 'Ligue as colunas externas aos campos do EasyLOTOTO.' },
+    { title: 'Conferência', desc: 'Veja a pré-visualização das linhas na tela.' },
+    { title: 'Gravação', desc: 'Grave os registros sem duplicações automáticas.' },
   ]);
 
   drawSubSection('7.1. Perfis de Importação Salvos');
   drawParagraph(
-    'Quando a mesma estrutura de planilha é importada rotineiramente, o operador pode salvar o mapeamento com um nome personalizado (ex: "Exportação Diária Manutenção"). Em importações futuras, basta selecionar o perfil salvo para que todas as colunas sejam associadas automaticamente.'
+    'Se a sua fábrica exporta sempre o mesmo formato de relatório do SAP ou Poka, salve o mapeamento das colunas com um nome (ex: "Importação SAP Diária"). Na próxima vez, basta escolher esse perfil para carregar as colunas de imediato.'
   );
 
-  drawSubSection('7.2. Algoritmo Antiduplicação e Desfazer Importação');
+  drawSubSection('7.2. Detecção de Duplicidades e Reversão');
   drawParagraph(
-    'O sistema gera uma assinatura hash única para cada linha importada. Caso o mesmo arquivo seja reenviado acidentalmente, linhas idênticas são desconsideradas. Além disso, cada lote importado é registrado na aba Histórico com a opção de reversão ("Desfazer importação"), apagando com segurança apenas os registros daquele lote.'
+    'O sistema analisa o conteúdo das linhas para não importar registros repetidos. Cada importação concluída fica salva no histórico e pode ser desfeita com o botão "Desfazer importação" caso o arquivo enviado contenha dados incorretos.'
   );
 
   // -----------------------------------------------------------------------
@@ -597,46 +591,100 @@ function buildChapters() {
   // -----------------------------------------------------------------------
   startChapter(
     '08',
-    'Campos Personalizados, KPIs e Editor de Código',
-    'Customização de atributos, indicadores gerenciais e novo editor Dark'
+    'Campos, KPIs e Mini Manual de Expressões',
+    'Sintaxe completa, catálogo de comandos, funções e exemplos práticos'
   );
 
   drawParagraph(
-    'O EasyLOTOTO v2 permite adaptar os formulários da fábrica criando campos customizados (Texto, Número, Data ou Seleção) e atribuindo papéis de sistema (como equipamento, setor, bloqueado_por, locked_at e unlocked_at).'
+    'O EasyLOTOTO v2 possui um motor próprio de expressões para três finalidades principais: (1) definir filtros de cadeados nas áreas, (2) criar campos calculados automaticamente e (3) gerar cartões de KPIs no Dashboard.'
   );
 
-  drawSubSection('8.1. Novo Editor de Expressões em Tema Escuro (Dark Theme)');
-  drawParagraph(
-    'Todos os campos de inserção de código lógico e expressões matemáticas receberam o novo padrão de IDE com Tema Escuro:'
-  );
-  drawBullet('Numeração e Indentação', 'Facilita a visualização de fórmulas complexas com múltiplas condições.');
-  drawBullet('Contraste e Cores de Sintaxe', 'Palavras-chave e variáveis são coloridas com alta legibilidade. Colchetes [campo] e aspas duplas "texto" contam com cores nítidas sobre o fundo escuro, evitando erros comuns de digitação.');
-  drawBullet('Autocomplete Integrado', 'Ao digitar "[" ou nomes de comandos, o editor apresenta um menu flutuante sugerindo campos cadastrados no banco e funções nativas (hoursOf, isEmpty, count, etc.).');
+  drawSubSection('8.1. Regras Gerais de Sintaxe');
+  drawBullet('Campos', 'Nomes ou chaves de campos devem estar sempre entre colchetes, por exemplo: [Equipamento], [Setor], [data_bloqueio]. Não diferencia maiúsculas de minúsculas nem acentos.');
+  drawBullet('Textos (Strings)', 'Devem estar entre aspas duplas: "Produção", "Prensa 01".');
+  drawBullet('Números e Booleanos', 'Números são digitados diretamente (10, 24.5). Booleanos: true, false, verdadeiro, falso.');
+  drawBullet('Valores Nulos', 'null ou nulo representam campos vazios ou ausentes.');
+  drawBullet('Palavra Especial "ativo"', 'Retorna verdadeiro se o registro estiver atualmente ativo segundo a regra da fábrica.');
 
-  drawCodeSnippet('Filtro de Cadeado LOTOTO por Equipamento', '[equipamento] == "Torno CNC 02" && isEmpty([data_desbloqueio])');
-  drawCodeSnippet('Fórmula de KPI para Bloqueios Prolongados', 'count(hoursOf([data_bloqueio]) > 48 && isEmpty([data_desbloqueio]))');
+  drawSubSection('8.2. Operadores Suportados');
+  const opHeaders = ['Operador', 'Alternativas', 'Significado / Uso'];
+  const opRows = [
+    ['==', '=', 'Igualdade (ex: [Setor] == "Laminação")'],
+    ['!=', '<>', 'Diferente (ex: [Setor] != "Usinagem")'],
+    ['<, <=, >, >=', '—', 'Comparações numéricas ou de datas'],
+    ['&&', 'and, e', 'E lógico — ambas condições verdadeiras'],
+    ['||', 'or, ou', 'OU lógico — pelo menos uma condição verdadeira'],
+    ['!', 'not, nao', 'Negação lógica (ex: !isEmpty([data_desbloqueio]))'],
+    ['+, -, *, /', '%', 'Operações matemáticas básicas (+ concatena textos)'],
+  ];
+  drawTable(opHeaders, opRows, [90, 110, 315]);
+
+  drawSubSection('8.3. Catálogo de Funções Embutidas');
+
+  const fnHeaders = ['Função', 'Exemplo de Uso', 'O que Faz / Retorno'];
+  const fnRows = [
+    ['isEmpty(x)', 'isEmpty([data_desbloqueio])', 'Retorna true se o campo for vazio ou nulo'],
+    ['contains(a, b)', 'contains([Equipamento], "Torno")', 'Verifica se o texto a contém o trecho b'],
+    ['startsWith(a, b)', 'startsWith([Setor], "Linha")', 'Verifica se o texto começa com o trecho'],
+    ['endsWith(a, b)', 'endsWith([Equipamento], "01")', 'Verifica se o texto termina com o trecho'],
+    ['lower(a), upper(a)', 'lower([Setor])', 'Converte texto para minúsculas ou maiúsculas'],
+    ['trim(a)', 'trim([Equipamento])', 'Remove espaços extras das extremidades'],
+    ['len(a)', 'len([Motivo]) > 10', 'Retorna o número de caracteres do texto'],
+    ['split(str, delim)', 'split([Tags], ";")', 'Separa texto em partes pelo delimitador'],
+    ['oneOf(x, a, b...)', 'oneOf([Setor], "Setor A", "Setor B")', 'True se x for igual a qualquer um dos itens'],
+    ['between(x, a, b)', 'between([Qtd], 1, 5)', 'True se x estiver entre o valor a e b'],
+    ['now(), today()', 'today()', 'Retorna data/hora atual ou início do dia atual'],
+    ['daysSince(d)', 'daysSince([data_bloqueio]) > 3', 'Quantidade de dias decorridos da data até agora'],
+    ['hoursSince(d)', 'hoursSince([data_bloqueio]) > 24', 'Quantidade de horas decorridas da data até agora'],
+    ['diffDays(a, b)', 'diffDays([data_bloqueio], [data_desbloqueio])', 'Diferença em dias entre duas datas'],
+    ['diffHours(a, b)', 'diffHours([data_bloqueio], [data_desbloqueio])', 'Diferença em horas entre duas datas'],
+    ['year(d), month(d)', 'year([data_bloqueio]) == 2026', 'Extrai o ano, mês (1-12) ou dia de uma data'],
+    ['if(cond, a, b)', 'if(ativo, "Em Aberto", "Encerrado")', 'Se a condição for verdadeira retorna a, senão b'],
+    ['coalesce(a, b...)', 'coalesce([Motivo], "Não informado")', 'Retorna o primeiro valor preenchido da lista'],
+    ['round(n, d)', 'round(daysSince([data_bloqueio]), 1)', 'Arredonda o número n para d casas decimais'],
+    ['min(...), max(...)', 'max([Qtd1], [Qtd2])', 'Retorna o menor ou maior número entre os valores'],
+  ];
+  drawTable(fnHeaders, fnRows, [125, 175, 215]);
+
+  drawSubSection('8.4. Exemplos Práticos');
+  drawCodeSnippet(
+    'Filtro de Área / Cadeado (Ativa cadeado para equipamento específico)',
+    '[Equipamento] == "Prensa Hidráulica 01" && isEmpty([data_desbloqueio])'
+  );
+  drawCodeSnippet(
+    'Campo Calculado: Dias Bloqueado',
+    'if(isEmpty([data_desbloqueio]), round(daysSince([data_bloqueio]), 1), round(diffDays([data_bloqueio], [data_desbloqueio]), 1))'
+  );
+  drawCodeSnippet(
+    'Expressão de KPI no Dashboard (Bloqueios ativos sem motivo preenchido)',
+    'ativo && isEmpty([Motivo])'
+  );
+  drawCodeSnippet(
+    'Expressão de KPI no Dashboard (Bloqueios ativos há mais de 24 horas)',
+    'ativo && hoursSince([data_bloqueio]) > 24'
+  );
 
   // -----------------------------------------------------------------------
   // CAPÍTULO 9
   // -----------------------------------------------------------------------
   startChapter(
     '09',
-    'Módulo: Relatórios Gerenciais e Análises',
-    'Cronogramas de Gantt, relatórios executivos em PDF e exportação Excel'
+    'Módulo: Relatórios e Exportação',
+    'Gráficos de Gantt, relatórios impressos em PDF e planilhas Excel'
   );
 
   drawParagraph(
-    'A aba Relatórios transforma os registros de bloqueio em relatórios analíticos para lideranças de manutenção e segurança do trabalho.'
+    'A aba Relatórios permite analisar o tempo de parada dos equipamentos e gerar documentos para conferência e auditoria.'
   );
 
-  drawSubSection('9.1. Diagrama de Gantt Temporal de Bloqueios');
+  drawSubSection('9.1. Gráfico de Gantt');
   drawParagraph(
-    'O diagrama de Gantt plota cada isolamento energético em uma linha do tempo horizontal contínua. Essa ferramenta visual permite identificar sobreposições de equipes em um mesmo setor e monitorar a evolução dos tempos de liberação de máquinas.'
+    'Mostra os bloqueios organizados em barras horizontais em uma linha do tempo. Isso permite ver quais máquinas estavam bloqueadas simultaneamente e quanto tempo cada intervenção durou.'
   );
 
-  drawSubSection('9.2. Relatórios Executivos em PDF e Excel');
-  drawBullet('Relatório PDF A4 Paisagem', 'Exporta relatórios formatados profissionalmente para afixação em quadros de gestão à vista, trazendo cabeçalho, autor ("Mapa de bloqueios LOTOTO") e paginação.');
-  drawBullet('Planilhas Excel (.xlsx)', 'O botão "Exportar registros (Excel)" gera o arquivo com nomenclatura padronizada registros-lototo-AAAAMMDD.xlsx, estruturado com colunas congeladas para processamento em BI.');
+  drawSubSection('9.2. Relatórios em PDF e Excel');
+  drawBullet('Relatórios PDF', 'Exporta fichas de bloqueios ativos ou históricos por período em formato A4 paisagem, ideais para impressão e quadros de aviso da fábrica.');
+  drawBullet('Exportação Excel', 'Gera planilha .xlsx formatada (registros-lototo-AAAAMMDD.xlsx) contendo todos os dados para análises adicionais.');
 
   // -----------------------------------------------------------------------
   // CAPÍTULO 10
@@ -644,34 +692,34 @@ function buildChapters() {
   startChapter(
     '10',
     'Backups, Sincronização Dinâmica e Área de Risco',
-    'Preservação de dados, transmissão óptica por QR Code e Área de Risco'
+    'Backups em arquivo, transmissão por QR Code e Área de Risco'
   );
 
   drawParagraph(
-    'O módulo de Backup e Governança reúne ferramentas para proteção de dados, cópias de segurança e transferências seguras entre estações.'
+    'A aba Backup centraliza a proteção de dados do sistema, rotinas de sincronização e opções de limpeza de banco.'
   );
 
-  drawSubSection('10.1. Backups Locais em Arquivo (.zip)');
-  drawBullet('Modo Somente Dados', 'Exporta registros de bloqueio e histórico de importações.');
-  drawBullet('Modo Dados + Configurações (Completo)', 'Exporta plantas, imagens, áreas, campos, KPIs e ajustes. Possui opção de incluir usuários e senhas criptografadas para clonagem de estação.');
-  drawBullet('Rotatividade Automática', 'O servidor gera backups automáticos diários e retém os últimos 14 arquivos no disco local.');
+  drawSubSection('10.1. Backups Locais (.zip)');
+  drawBullet('Somente Dados', 'Copia apenas os registros de bloqueio e histórico de importações.');
+  drawBullet('Dados + Configurações (Completo)', 'Inclui tudo: plantas, imagens, áreas desenhadas, campos, KPIs e ajustes. Possui opção de incluir usuários para clonar estações.');
+  drawBullet('Backup Automático Diário', 'O servidor cria um backup automático todo dia e guarda os últimos 14 arquivos no disco local.');
 
-  drawSubSection('10.2. Sincronização Dinâmica por Código Visual (Online <-> Offline)');
+  drawSubSection('10.2. Sincronização Dinâmica por Código Visual (QR Code)');
   drawParagraph(
-    'Para ambientes industriais sem conexão de rede entre a fábrica e a matriz corporativa, o EasyLOTOTO v2 conta com a Sincronização Óptica Dinâmica:'
+    'Para computadores de fábrica que não conversam em rede com outros setores, o sistema permite transferir dados via Código Visual Dinâmico:'
   );
-  drawBullet('Transmissão Rápida em Modal', 'Ao clicar em "Iniciar Processo de Sincronização", abre-se um modal dedicado que transmite os dados compactados em um fluxo de QR Codes de alta cadência.');
-  drawBullet('Leitor Óptico via Câmera', 'Na estação de destino, acione "Receber sincronização" -> "Abrir leitor da câmera" e aponte para a outra tela para capturar e validar o pacote.');
-  drawBullet('Transferência Manual por Texto', 'Permite também copiar o código compactado e colar manualmente no destino via área de transferência (Ctrl+C / Ctrl+V).');
+  drawBullet('Gerar Sincronização', 'Clique em "Iniciar Processo de Sincronização" para abrir o modal que exibe o fluxo rápido de QR Codes com os dados.');
+  drawBullet('Receber Sincronização', 'Na outra máquina, vá em "Receber sincronização" -> "Abrir leitor da câmera" e aponte para a tela.');
+  drawBullet('Transferência Manual por Texto', 'Se não houver câmera, copie o código em texto gerado e cole na máquina de destino.');
 
   drawSubSection('10.3. A Guia "Conta" e a Área de Risco');
   drawParagraph(
-    'Localizada na aba de backup, a guia "Conta" dispõe de funções de limpeza profunda, desenhada sob padrão de alto contraste (sem degradês escuros):'
+    'A guia "Conta" dispõe de funções para limpar o banco de dados quando necessário, apresentadas em layout com borda de aviso:'
   );
-  drawBullet('Excluir Dados', 'Apaga todos os registros de bloqueio, mantendo intactas as plantas, áreas e campos.');
-  drawBullet('Excluir Dados + Configurações', 'Limpa o ambiente e redefine o sistema para o padrão inicial, preservando as contas de usuários e senhas.');
-  drawBullet('Excluir Backups', 'Apaga os arquivos .zip antigos salvos na pasta local do servidor para liberar espaço.');
-  drawBullet('Confirmação por Palavra-Chave', 'Exige a digitação exata da chave correspondente ("EXCLUIR DADOS", "EXCLUIR TUDO" ou "EXCLUIR BACKUPS") para evitar qualquer operação acidental.');
+  drawBullet('Excluir Dados', 'Apaga todos os registros de bloqueio, mantendo plantas, áreas e campos.');
+  drawBullet('Excluir Dados + Configurações', 'Limpa registros, plantas e campos, mas preserva as contas de usuários e senhas para que o acesso não seja perdido.');
+  drawBullet('Excluir Backups', 'Apaga os arquivos .zip de backups antigos salvos no servidor para liberar espaço.');
+  drawBullet('Palavra-Chave de Confirmação', 'Exige digitar a frase de confirmação correspondente (ex: "EXCLUIR DADOS") para evitar qualquer exclusão involuntária.');
 
   // -----------------------------------------------------------------------
   // CAPÍTULO 11
@@ -679,26 +727,26 @@ function buildChapters() {
   startChapter(
     '11',
     'Configurações Gerais e Auditoria do Sistema',
-    'Parametrização global de regras de bloqueio e trilha de auditoria'
+    'Regra de bloqueio ativo, pasta de redundância externa e log de auditoria'
   );
 
   drawParagraph(
-    'A aba Configurações centraliza a parametrização do motor de regras e a fiscalização de eventos operacionais.'
+    'A aba Configurações ajusta parâmetros globais do sistema e permite auditar as ações realizadas.'
   );
 
-  drawSubSection('11.1. Definição da Regra de Bloqueio Ativo');
+  drawSubSection('11.1. Regra de Bloqueio Ativo');
   drawParagraph(
-    'O critério que define se um registro representa um bloqueio ativo na fábrica é configurável por expressão. O padrão adotado é isEmpty([data_desbloqueio]), significando que enquanto não houver data e hora de desbloqueio registradas, a máquina permanecerá sinalizada com o cadeado LOTOTO.'
+    'Define a fórmula que determina se um registro está ativo ou encerrado. O padrão de fábrica é isEmpty([data_desbloqueio]), indicando que a máquina está bloqueada enquanto não for registrada a data de desbloqueio.'
   );
 
-  drawSubSection('11.2. Pasta Externa de Redundância');
+  drawSubSection('11.2. Pasta Externa para Cópia de Backups');
   drawParagraph(
-    'É possível apontar uma pasta em um segundo disco ou compartilhamento de rede corporativa (ex: \\\\servidor\\backups_lototo ou D:\\Backups\\LOTOTO). O botão "Testar pasta" valida as permissões de escrita antes da gravação.'
+    'Permite indicar um caminho em outro disco rígido ou em uma pasta compartilhada na rede (ex: D:\\Backups\\LOTOTO ou \\\\servidor\\pasta). O botão "Testar pasta" valida o acesso de escrita.'
   );
 
-  drawSubSection('11.3. Trilha de Auditoria (Audit Log)');
+  drawSubSection('11.3. Trilha de Auditoria');
   drawParagraph(
-    'Todas as alterações no sistema (criação e exclusão de bloqueios, alterações de layout, logins, importações e ações na área de risco) são registradas com data, hora, usuário e detalhe, permitindo auditorias técnicas completas.'
+    'Registra eventos importantes (criação e exclusão de bloqueios, alterações de layout, importações e ações de risco) com data, hora e nome do usuário.'
   );
 
   // -----------------------------------------------------------------------
@@ -707,52 +755,50 @@ function buildChapters() {
   startChapter(
     '12',
     'Guia Rápido, Teclas de Atalho e FAQ',
-    'Matriz de comandos, procedimentos de contingência e boas práticas'
+    'Resumo de comandos, atalhos de mouse/teclado e perguntas frequentes'
   );
 
   drawParagraph(
-    'A tabela a seguir consolida as teclas de atalho e comandos de mouse essenciais para máxima produtividade:'
+    'Consolidado de atalhos e comandos para agilizar a operação do sistema:'
   );
 
-  const shortcutHeaders = ['Comando / Tecla', 'Módulo de Uso', 'Ação / Efeito'];
+  const shortcutHeaders = ['Comando / Tecla', 'Módulo', 'Ação / Efeito'];
   const shortcutRows = [
-    ['Ctrl + Z', 'Editor de Plantas e Áreas', 'Desfaz a última alteração (histórico de até 10 etapas).'],
-    ['Ctrl + Y', 'Editor de Plantas e Áreas', 'Refaz a alteração que havia sido desfeita.'],
+    ['Ctrl + Z', 'Editor de Plantas e Áreas', 'Desfaz a última alteração (histórico de até 10 passos).'],
+    ['Ctrl + Y', 'Editor de Plantas e Áreas', 'Refaz a alteração desfeita.'],
     ['Tecla [CTRL] + Clique', 'Editor de Plantas e Áreas', 'Seleciona múltiplas áreas para edição em lote.'],
-    ['Roda do Mouse (Scroll)', 'Mapa da fábrica / Editor', 'Aplica zoom in / out suave na coordenada do ponteiro.'],
-    ['Arrastar (Botão Esquerdo)', 'Mapa da fábrica', 'Navega (Pan) pela extensão da planta industrial.'],
-    ['Duplo-clique na Área', 'Mapa da fábrica', 'Aproxima e centraliza a visualização no equipamento.'],
-    ['Clique no Fundo da Planta', 'Editor de Plantas e Áreas', 'Desmarca áreas e exibe configurações globais da planta.'],
-    ['Botão Magnético', 'Barra do Editor', 'Ativa/Desativa atração magnética de vértices no desenho.'],
-    ['Login "recovery"', 'Tela de Login', 'Acesso seguro de contingência com perfil de administrador.'],
+    ['Roda do Mouse (Scroll)', 'Visualizador / Editor', 'Aplica zoom in / out suave na posição do cursor.'],
+    ['Arrastar (Botão Esquerdo)', 'Visualizador', 'Move o mapa pela tela.'],
+    ['Duplo-clique na Área', 'Visualizador', 'Aproxima a visualização na área clicada.'],
+    ['Clique no Fundo da Planta', 'Editor de Plantas e Áreas', 'Desmarca seleção e mostra dados da planta.'],
+    ['Botão Magnético', 'Barra do Editor', 'Liga ou desliga o alinhamento magnético dos pontos.'],
+    ['Login "recovery"', 'Tela de Login', 'Acesso de contingência com perfil de administrador.'],
   ];
   drawTable(shortcutHeaders, shortcutRows, [130, 150, 235]);
 
   drawSubSection('12.1. Perguntas Frequentes (FAQ)');
   drawBullet(
-    'Esqueci a senha do administrador. Como recuperar o acesso?',
-    'Acesse a tela de login e entre com o usuário "recovery" e senha "1234Abcd". O sistema abrirá com perfil de Administrador, permitindo acessar a aba "Usuários" para redefinir as senhas dos colaboradores.'
+    'Esqueci a senha do administrador. O que fazer?',
+    'Acesse a tela de login e entre com o usuário "recovery" e senha "1234Abcd". O sistema abrirá com perfil de administrador, permitindo redefinir as senhas dos demais usuários na aba Usuários.'
   );
 
   drawBullet(
     'Por que a conta "recovery" não aparece na lista de usuários?',
-    'Por estritos critérios de segurança, a conta de contingência é programada para ser invisível nas interfaces visuais, prevenindo alterações inadvertidas ou exclusões.'
+    'A conta foi programada para ser oculta na interface gráfica para segurança, prevenindo alterações acidentais.'
   );
 
   drawBullet(
-    'Como disponibilizar a visualização do mapa da fábrica sem login para totens?',
-    'Acesse a aba "Usuários" (ou Configurações) e ative a chave "Visualização pública". Isso permitirá que computadores de chão de fábrica e totens exibam a planta interativa com cadeados sem solicitar senha, mantendo bloqueadas as telas de edição e cadastro.'
+    'Como deixar a visualização do mapa liberada para totens sem pedir login?',
+    'Na aba Usuários (ou Configurações), ative a opção "Visualização pública". Assim, totens e telas de fábrica exibem o mapa com os cadeados sem exigir senha.'
   );
 
-  checkSpace(60);
+  checkSpace(55);
   doc.y += 12;
   doc.moveTo(M, doc.y).lineTo(PAGE_W - M, doc.y).lineWidth(0.8).strokeColor(C.GRAY_LINE).stroke();
   doc.y += 10;
 
   doc.font('Helvetica-Bold').fontSize(9).fillColor(C.NAVY);
-  doc.text('EasyLOTOTO v2 — Sistema de Gestão Visual de Bloqueios e Etiquetagens LOTOTO.', M, doc.y, { align: 'center', width: CONTENT_W });
-  doc.font('Helvetica').fontSize(8).fillColor(C.TEXT_MUTED);
-  doc.text('Documento oficial emitido pelo núcleo de documentação do EasyLOTOTO v2.', M, doc.y + 4, { align: 'center', width: CONTENT_W });
+  doc.text('EasyLOTOTO v2 — Sistema simples para gestão visual de LOTOTO da fábrica.', M, doc.y, { align: 'center', width: CONTENT_W });
 }
 
 // =========================================================================
@@ -763,7 +809,7 @@ function fillTableOfContents() {
   doc.y = TOP_MARGIN;
 
   doc.font('Helvetica-Bold').fontSize(16).fillColor(C.NAVY);
-  doc.text('Sumário do Manual Técnico', M, doc.y);
+  doc.text('Sumário do Manual de Uso', M, doc.y);
   doc.y += 4;
   doc.moveTo(M, doc.y).lineTo(PAGE_W - M, doc.y).lineWidth(1).strokeColor(C.BLUE_PRIMARY).stroke();
   doc.y += 14;
@@ -771,19 +817,15 @@ function fillTableOfContents() {
   chapterRegistry.forEach((ch) => {
     const y = doc.y;
 
-    // Número
-    doc.font('Helvetica-Bold').fontSize(10.5).fillColor(C.ORANGE_SIGNAL);
+    doc.font('Helvetica-Bold').fontSize(10).fillColor(C.ORANGE_SIGNAL);
     doc.text(ch.number, M, y, { width: 22 });
 
-    // Título
     doc.font('Helvetica-Bold').fontSize(9.5).fillColor(C.TEXT_TITLE);
     doc.text(ch.title, M + 26, y, { width: CONTENT_W - 75 });
 
-    // Página
     doc.font('Helvetica-Bold').fontSize(9.5).fillColor(C.BLUE_PRIMARY);
     doc.text(`Pág. ${ch.pageNum}`, M + CONTENT_W - 45, y, { width: 45, align: 'right' });
 
-    // Subtítulo
     if (ch.subtitle) {
       doc.font('Helvetica').fontSize(7.5).fillColor(C.TEXT_MUTED);
       doc.text(ch.subtitle, M + 26, doc.y + 1, { width: CONTENT_W - 75 });
@@ -796,8 +838,8 @@ function fillTableOfContents() {
   doc.y += 8;
   drawCallout(
     'tip',
-    'Terminologia Padronizada: LOTO vs LOTOTO',
-    'O EasyLOTOTO v2 adota em todas as interfaces, relatórios e manuais a sigla "LOTOTO" (Lockout, Tagout, Tryout), enfatizando a obrigatoriedade da etapa de Teste de Energia Zero antes de qualquer intervenção em máquinas e equipamentos industriais.'
+    'Padronização da Nomenclatura LOTOTO',
+    'O EasyLOTOTO v2 adota a sigla LOTOTO (Lockout, Tagout, Tryout), reforçando o ciclo de travamento mecânico/elétrico, etiquetagem e teste de energia zero antes de qualquer atividade de manutenção.'
   );
 }
 
@@ -811,7 +853,7 @@ function applyHeaderAndFooter() {
   for (let i = 0; i < totalPages; i++) {
     doc.switchToPage(i);
 
-    // Página 1 (Capa): sem cabeçalho e sem rodapé
+    // Página 1 (Capa): sem cabeçalho e sem rodapé padrão (já possui rodapé próprio de créditos)
     if (i === 0) continue;
 
     const oldTop = doc.page.margins.top;
@@ -824,10 +866,10 @@ function applyHeaderAndFooter() {
     doc.text('EasyLOTOTO v2', M, 24, { lineBreak: false });
 
     doc.font('Helvetica').fontSize(7.5).fillColor(C.TEXT_MUTED);
-    doc.text('•  Manual Técnico de Operação', M + 75, 24, { lineBreak: false });
+    doc.text('•  Manual de Uso', M + 75, 24, { lineBreak: false });
 
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor(C.NAVY);
-    doc.text('Mapa da fábrica', PAGE_W - M - 100, 24, { width: 100, align: 'right', lineBreak: false });
+    doc.text('EasyLOTOTO v2', PAGE_W - M - 100, 24, { width: 100, align: 'right', lineBreak: false });
 
     doc.moveTo(M, 36).lineTo(PAGE_W - M, 36).lineWidth(0.5).strokeColor(C.GRAY_LINE).stroke();
 
@@ -835,7 +877,7 @@ function applyHeaderAndFooter() {
     doc.moveTo(M, PAGE_H - 34).lineTo(PAGE_W - M, PAGE_H - 34).lineWidth(0.5).strokeColor(C.GRAY_LINE).stroke();
 
     doc.font('Helvetica').fontSize(7.5).fillColor(C.TEXT_MUTED);
-    doc.text('EasyLOTOTO v2 • Sistema de Gestão Visual de Bloqueios e Etiquetagens LOTOTO', M, PAGE_H - 26, { lineBreak: false });
+    doc.text('EasyLOTOTO v2 • Gestão Visual de Bloqueios e Etiquetagens LOTOTO', M, PAGE_H - 26, { lineBreak: false });
 
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor(C.NAVY);
     doc.text(`Página ${i + 1} de ${totalPages}`, PAGE_W - M - 90, PAGE_H - 26, { width: 90, align: 'right', lineBreak: false });
@@ -850,8 +892,11 @@ function applyHeaderAndFooter() {
 // =========================================================================
 console.log('Iniciando compilação do Manual de Uso do EasyLOTOTO v2 em PDF...');
 buildCoverPage();
+console.log('Páginas após a capa:', doc.bufferedPageRange().count);
 reserveTocPage();
+console.log('Páginas após reservar sumário:', doc.bufferedPageRange().count);
 buildChapters();
+console.log('Capítulos mapeados no sumário:', chapterRegistry.map(c => `Cap ${c.number}: pág ${c.pageNum}`));
 fillTableOfContents();
 applyHeaderAndFooter();
 
@@ -859,8 +904,16 @@ doc.end();
 
 writeStream.on('finish', () => {
   const stats = fs.statSync(outputPath);
-  console.log('Manual Técnico compilado com sucesso!');
+  console.log('Manual compilado com sucesso!');
   console.log(`Arquivo: ${outputPath}`);
   console.log(`Tamanho: ${(stats.size / 1024).toFixed(1)} KB`);
-  console.log(`Páginas totais: ${chapterRegistry[chapterRegistry.length - 1]?.pageNum || 'OK'}`);
+  console.log(`Páginas totais: ${doc.bufferedPageRange().count}`);
+
+  const deployPdf = path.resolve(here, '../../factory-map-deploy/Manual_de_Uso_EasyLOTOTO_v2.pdf');
+  try {
+    fs.copyFileSync(outputPath, deployPdf);
+    console.log(`Cópia sincronizada para: ${deployPdf}`);
+  } catch (e) {
+    console.error('Erro ao copiar para deploy:', e.message);
+  }
 });
