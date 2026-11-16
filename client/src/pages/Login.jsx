@@ -8,7 +8,7 @@ export default function Login() {
   const { loading, user, config, login, setup } = useAuth();
   const nav = useNavigate();
   const loc = useLocation();
-  const [form, setForm] = useState({ name: '', username: '', password: '', again: '' });
+  const [form, setForm] = useState({ name: '', username: '', password: '', again: '', company_name: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [needCaptcha, setNeedCaptcha] = useState(false);
@@ -33,6 +33,18 @@ export default function Login() {
     }
   }, [config.captcha_required]);
 
+  const checkUsernameCaptcha = async () => {
+    const u = form.username.trim().toLowerCase();
+    if (!u) return;
+    try {
+      const res = await api.authConfig(u);
+      if (res?.captcha_required) {
+        setNeedCaptcha(true);
+        if (!captchaData) fetchCaptcha();
+      }
+    } catch {}
+  };
+
   if (loading) return <div className="center-screen"><div className="spinner" /></div>;
   if (user) return <Navigate to={loc.state?.from || '/'} replace />;
 
@@ -43,14 +55,14 @@ export default function Login() {
     setBusy(true);
     try {
       if (firstRun) {
-        await setup({ name: form.name, username: form.username, password: form.password });
+        await setup({ name: form.name, username: form.username, password: form.password, company_name: form.company_name || 'Fábrica Matriz' });
       } else {
         await login(form.username, form.password, captchaInput, captchaData?.token);
       }
       nav(loc.state?.from || '/', { replace: true });
     } catch (err) {
       setError(err.message);
-      if (err.captcha_required) {
+      if (err.captcha_required || /código de verificação|captcha/i.test(err.message)) {
         setNeedCaptcha(true);
         fetchCaptcha();
       }
@@ -74,12 +86,18 @@ export default function Login() {
             : 'Mapa de bloqueios LOTO'}
         </p>
         {firstRun && (
-          <label className="field">Nome
-            <input value={form.name} onChange={set('name')} autoComplete="name" required autoFocus />
-          </label>
+          <>
+            <label className="field">Nome completo
+              <input value={form.name} onChange={set('name')} autoComplete="name" required autoFocus />
+            </label>
+            <label className="field">Nome da primeira empresa
+              <input value={form.company_name} onChange={set('company_name')} placeholder="Ex.: Fábrica Matriz" />
+              <small style={{ color: 'var(--muted, #94a3b8)', fontSize: 12 }}>Você terá perfil de Administrador Global e poderá cadastrar mais empresas a qualquer momento.</small>
+            </label>
+          </>
         )}
         <label className="field">Usuário
-          <input value={form.username} onChange={set('username')} autoComplete="username" autoCapitalize="none" required autoFocus={!firstRun} />
+          <input value={form.username} onChange={set('username')} onBlur={checkUsernameCaptcha} autoComplete="username" autoCapitalize="none" required autoFocus={!firstRun} />
         </label>
         <label className="field">Senha{firstRun ? ' (mín. 8 caracteres)' : ''}
           <input type="password" value={form.password} onChange={set('password')} autoComplete={firstRun ? 'new-password' : 'current-password'} required />

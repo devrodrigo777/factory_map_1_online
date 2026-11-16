@@ -9,7 +9,7 @@ import ExcelJS from 'exceljs';
 import { zip as fzip, unzip as funzip, strToU8, strFromU8 } from 'fflate';
 import fs from 'node:fs';
 import path from 'node:path';
-import { db, DATA_DIR, UPLOAD_DIR } from './db.js';
+import { db, masterDb, tenantContext, DATA_DIR, UPLOAD_DIR } from './db.js';
 import { getStore, invalidate, isActive, valuesFor } from './store.js';
 import { audit } from './auth.js';
 
@@ -17,8 +17,13 @@ export const router = Router();
 const httpError = (status, message) => Object.assign(new Error(message), { status });
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
+export const getBackupDir = () => {
+  const cid = tenantContext.getStore()?.companyId || 1;
+  const dir = path.join(DATA_DIR, 'tenants', String(cid), 'backups');
+  fs.mkdirSync(dir, { recursive: true });
+  return dir;
+};
 export const BACKUP_DIR = path.join(DATA_DIR, 'backups');
-fs.mkdirSync(BACKUP_DIR, { recursive: true });
 const NAME_RE = /^[\w.-]+\.zip$/;
 const SCHEMA = () => db.pragma('user_version', { simple: true });
 
@@ -40,7 +45,12 @@ export async function buildBackup(type, { includeUsers = false } = {}) {
   const data = {};
   if (type === 'full') {
     for (const t of FULL_TABLES) data[t] = rows(t);
-    if (includeUsers) data.users = rows('users');
+    if (includeUsers) {
+      const cid = tenantContext.getStore()?.companyId;
+      data.users = cid
+        ? masterDb.prepare('SELECT username, name, password_hash, role, active FROM users WHERE company_id = ?').all(cid)
+        : masterDb.prepare('SELECT username, name, password_hash, role, active FROM users').all();
+    }
     for (const m of data.maps) {
       const f = path.basename(m.image);
       try {
@@ -74,10 +84,11 @@ function prune(dir, prefix, keep) {
 /** Cria o backup no servidor; opcionalmente guarda só os últimos `keep` e copia para outra pasta. */
 export async function runBackup({ type = 'full', includeUsers = false, prefix = 'loto', keep = 0, copyTo = '' } = {}) {
   const { buffer, manifest } = await buildBackup(type, { includeUsers });
+  const backupDir = getBackupDir();
   let name = `${prefix}-${type}-${stamp()}.zip`;
-  for (let n = 2; fs.existsSync(path.join(BACKUP_DIR, name)); n++) name = `${prefix}-${type}-${stamp()}-${n}.zip`;
-  fs.writeFileSync(path.join(BACKUP_DIR, name), buffer);
-  if (keep > 0) prune(BACKUP_DIR, prefix, keep);
+  for (let n = 2; fs.existsSync(path.join(backupDir, name)); n++) name = `${prefix}-${type}-${stamp()}-${n}.zip`;
+  fs.writeFileSync(path.join(backupDir, name), buffer);
+  if (keep > 0) prune(backupDir, prefix, keep);
   let copyError = null;
   if (copyTo) {
     try {
@@ -90,8 +101,9 @@ export async function runBackup({ type = 'full', includeUsers = false, prefix = 
 }
 
 function listBackups() {
-  return fs.readdirSync(BACKUP_DIR).filter((n) => NAME_RE.test(n)).map((name) => {
-    const st = fs.statSync(path.join(BACKUP_DIR, name));
+  const backupDir = getBackupDir();
+  return fs.readdirSync(backupDir).filter((n) => NAME_RE.test(n)).map((name) => {
+    const st = fs.statSync(path.join(backupDir, name));
     return {
       name, size: st.size, created_at: st.mtime.toISOString(),
       type: name.includes('-full-') ? 'full' : 'data',
@@ -115,8 +127,9 @@ async function readBackup(buffer) {
 function loadInput(req) {
   if (req.file) return req.file.buffer;
   const name = String(req.body?.name ?? '');
-  if (!NAME_RE.test(name) || !fs.existsSync(path.join(BACKUP_DIR, name))) throw httpError(404, 'Backup não encontrado.');
-  return fs.readFileSync(path.join(BACKUP_DIR, name));
+  const backupDir = getBackupDir();
+  if (!NAME_RE.test(name) || !fs.existsSync(path.join(backupDir, name))) throw httpError(404, 'Backup não encontrado.');
+  return fs.readFileSync(path.join(backupDir, name));
 }
 
 // ---------- restauração ----------
@@ -133,14 +146,20 @@ function insertRows(table, list) {
 }
 
 function restoreFull({ files, data }) {
-  if (data.users && !data.users.some((u) => u.role === 'admin' && u.active)) {
+  if (data.users && !data.users.some((u) => (u.role === 'admin' || u.role === 'globaladmin') && u.active)) {
     throw httpError(400, 'O backup contém usuários, mas nenhum administrador ativo. Restauração cancelada para você não perder o acesso.');
   }
+  const cid = tenantContext.getStore()?.companyId || 1;
   db.transaction(() => {
     for (const t of DELETE_ORDER) if (t in data) db.prepare(`DELETE FROM ${t}`).run();
-    if (data.users) { db.prepare('DELETE FROM sessions').run(); db.prepare('DELETE FROM users').run(); }
     for (const t of INSERT_ORDER) if (t in data) insertRows(t, data[t]);
-    if (data.users) insertRows('users', data.users);
+    if (data.users) {
+      masterDb.prepare('DELETE FROM users WHERE company_id = ?').run(cid);
+      for (const u of data.users) {
+        masterDb.prepare('INSERT INTO users (username, name, password_hash, role, company_id, active) VALUES (?, ?, ?, ?, ?, ?)')
+          .run(u.username, u.name, u.password_hash, u.role === 'globaladmin' ? 'admin' : (u.role || 'viewer'), cid, u.active ?? 1);
+      }
+    }
   })();
   const keep = new Set();
   for (const m of data.maps ?? []) keep.add(path.basename(m.image));
@@ -200,14 +219,16 @@ router.post('/backup/create', wrap(async (req, res) => {
 
 router.get('/backup/files/:name', (req, res) => {
   const name = req.params.name;
-  if (!NAME_RE.test(name) || !fs.existsSync(path.join(BACKUP_DIR, name))) throw httpError(404, 'Backup não encontrado.');
-  res.download(path.join(BACKUP_DIR, name), name);
+  const backupDir = getBackupDir();
+  if (!NAME_RE.test(name) || !fs.existsSync(path.join(backupDir, name))) throw httpError(404, 'Backup não encontrado.');
+  res.download(path.join(backupDir, name), name);
 });
 
 router.delete('/backup/files/:name', (req, res) => {
   const name = req.params.name;
+  const backupDir = getBackupDir();
   if (!NAME_RE.test(name)) throw httpError(400, 'Nome inválido.');
-  try { fs.unlinkSync(path.join(BACKUP_DIR, name)); } catch { /* já não existe */ }
+  try { fs.unlinkSync(path.join(backupDir, name)); } catch { /* já não existe */ }
   res.status(204).end();
 });
 

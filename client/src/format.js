@@ -105,11 +105,17 @@ export const ROLE_LABELS = {
   unlocked_at: 'Data de desbloqueio',
 };
 
-export const ROLE_NAMES = { viewer: 'Visualizador', operator: 'Operador', admin: 'Administrador' };
+export const ROLE_NAMES = {
+  viewer: 'Visualizador',
+  operator: 'Operador',
+  admin: 'Administrador da Empresa',
+  globaladmin: 'Administrador Global',
+};
 export const ROLE_HELP = {
-  viewer: 'Vê o mapa, os cadeados, o dashboard e os registros. Não altera nada.',
-  operator: 'Tudo do Visualizador, mais: criar/editar registros, registrar desbloqueios e importar Excel.',
-  admin: 'Acesso total: plantas e áreas, campos, KPIs, usuários, backup e restauração.',
+  viewer: 'Vê o mapa, os cadeados, o dashboard e os registros da sua empresa.',
+  operator: 'Tudo do Visualizador, mais: criar/editar registros e importar Excel na empresa.',
+  admin: 'Acesso total na sua empresa: plantas e áreas, campos, KPIs, usuários e sincronização.',
+  globaladmin: 'Super Administrador: gerencia todas as empresas e usuários de todo o sistema.',
 };
 export const formatBytes = (b) => (b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`);
 export const formatDateTime = (s) => {

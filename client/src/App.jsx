@@ -13,6 +13,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Records from './pages/Records.jsx';
 import ImportPage from './pages/ImportPage.jsx';
 import Fields from './pages/Fields.jsx';
+import Companies from './pages/Companies.jsx';
 
 export default function App() {
   return (
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="/reports" element={<Protected><Reports /></Protected>} />
             <Route path="/settings" element={<Protected min="admin"><Settings /></Protected>} />
             <Route path="/users" element={<Protected min="admin"><Users /></Protected>} />
+            <Route path="/companies" element={<Protected min="globaladmin"><Companies /></Protected>} />
             <Route path="/backup" element={<Protected min="admin"><Backup /></Protected>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

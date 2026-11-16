@@ -41,8 +41,15 @@ export const api = {
   deleteMap: (id) => request(`/api/maps/${id}`, { method: 'DELETE' }),
   saveAreas: (id, areas) => request(`/api/maps/${id}/areas`, json('PUT', { areas })),
 
+  // empresas (globaladmin)
+  listCompanies: () => request('/api/companies'),
+  createCompany: (body) => request('/api/companies', json('POST', body)),
+  patchCompany: (id, body) => request(`/api/companies/${id}`, json('PATCH', body)),
+  deleteCompany: (id) => request(`/api/companies/${id}`, { method: 'DELETE' }),
+  selectCompany: (id) => request(`/api/companies/${id}/select`, { method: 'POST' }),
+
   // acesso
-  authConfig: () => request('/api/auth/config'),
+  authConfig: (username) => request('/api/auth/config' + (username ? `?username=${encodeURIComponent(username)}` : '')),
   getCaptcha: () => request('/api/auth/captcha'),
   me: () => request('/api/auth/me'),
   login: (username, password, captcha, captcha_token) => request('/api/auth/login', json('POST', { username, password, captcha, captcha_token })),

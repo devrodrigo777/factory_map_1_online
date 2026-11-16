@@ -2,15 +2,21 @@
 //  - os registros são lidos/convertidos uma única vez e atualizados de forma incremental a cada edição;
 //  - campos calculados e "ativo" são avaliados sob demanda e guardados;
 //  - consultas pesadas (ordenações, filtros de área, contagens) são memorizadas até algo mudar.
-import { db } from './db.js';
+import { db, tenantContext } from './db.js';
 import { buildCtx, coerce } from './core.js';
 import { isEmpty, norm, toTime } from './expr.js';
 
 const RAW = 'SELECT id, data, created_at, created_by, updated_by, import_id FROM records';
 const VOLATILE_MS = 5000; // valores que dependem da hora atual são recalculados no máximo a cada 5 s
-let state = null;
+const stores = new Map(); // isolamento de store em memória por empresa
 
-export const invalidate = () => { state = null; };
+const currentCompanyId = () => tenantContext.getStore()?.companyId || 1;
+
+export const invalidate = () => {
+  const cid = tenantContext.getStore()?.companyId;
+  if (cid) stores.delete(cid);
+  else stores.clear();
+};
 
 function buildRec(ctx, row) {
   const data = JSON.parse(row.data);
@@ -26,19 +32,27 @@ function buildRec(ctx, row) {
 }
 
 export function getStore() {
+  const cid = currentCompanyId();
   const dv = db.pragma('data_version', { simple: true }); // muda quando OUTRO processo altera o banco
-  if (state && state.dv !== dv) state = null;
+  let state = stores.get(cid);
+  if (state && state.dv !== dv) {
+    stores.delete(cid);
+    state = null;
+  }
   if (!state) {
     const ctx = buildCtx();
     const recs = [];
     for (const row of db.prepare(`${RAW} ORDER BY id`).iterate()) recs.push(buildRec(ctx, row));
     state = { ctx, recs, byId: new Map(recs.map((r) => [r.id, r])), derived: new Map(), dv };
+    stores.set(cid, state);
   }
   return state;
 }
 
 // atualizações incrementais (criar/editar/excluir um registro sem reconstruir tudo)
 export function upsertRecord(id) {
+  const cid = currentCompanyId();
+  const state = stores.get(cid);
   if (!state) return;
   const row = db.prepare(`${RAW} WHERE id = ?`).get(id);
   if (!row) return removeRecord(id);
@@ -49,6 +63,8 @@ export function upsertRecord(id) {
   state.derived.clear();
 }
 export function removeRecord(id) {
+  const cid = currentCompanyId();
+  const state = stores.get(cid);
   if (!state) return;
   const old = state.byId.get(id);
   if (old) { state.recs.splice(state.recs.indexOf(old), 1); state.byId.delete(id); }

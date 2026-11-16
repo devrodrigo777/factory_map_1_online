@@ -88,7 +88,7 @@ export default function DynamicSyncCode({ code, size = 320, onCopy }) {
         </div>
 
         <p className="sync-notice">
-          Transmissão automática em fluxo contínuo. Aponte a câmera em <strong>Receber sincronização</strong> na outra instância para leitura direta.
+          Aponte a câmera em <strong>Receber sincronização</strong> na outra instância para leitura direta.
         </p>
 
         <div className="sync-card-footer">

@@ -2,7 +2,7 @@
 import { Router } from 'express';
 import fs from 'node:fs';
 import path from 'node:path';
-import { db, getSetting, setSetting } from './db.js';
+import { db, masterDb, getTenantDb, tenantContext, getSetting, setSetting } from './db.js';
 import { DEFAULT_CONFIG, getConfig, saveConfig } from './core.js';
 import { norm } from './expr.js';
 import { BACKUP_DIR, runBackup } from './backup.js';
@@ -142,11 +142,22 @@ let lastImportTick = 0;
 export function startJobs() {
   const tick = async () => {
     try {
-      const cfg = getConfig();
-      if (backupDue(cfg.backup, getState('backup'))) await runBackupJob();
-      if (cfg.import.enabled && cfg.import.folder && Date.now() - lastImportTick >= cfg.import.interval_s * 1000) {
-        lastImportTick = Date.now();
-        await runImportJob(false);
+      const companies = masterDb.prepare('SELECT id FROM companies WHERE active = 1').all();
+      for (const comp of companies) {
+        const tDb = getTenantDb(comp.id);
+        if (!tDb) continue;
+        await tenantContext.run({ companyId: comp.id, db: tDb }, async () => {
+          try {
+            const cfg = getConfig();
+            if (backupDue(cfg.backup, getState('backup'))) await runBackupJob();
+            if (cfg.import.enabled && cfg.import.folder && Date.now() - lastImportTick >= cfg.import.interval_s * 1000) {
+              lastImportTick = Date.now();
+              await runImportJob(false);
+            }
+          } catch (err) {
+            console.error(`Falha em tarefa da empresa ${comp.id}:`, err.message);
+          }
+        });
       }
     } catch (e) { console.error('Falha em tarefa automática:', e.message); }
   };

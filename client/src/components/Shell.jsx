@@ -13,12 +13,13 @@ const tabs = [
   ['/admin', 'Plantas e áreas', 'admin'],
   ['/settings', 'Configurações', 'admin'],
   ['/users', 'Usuários', 'admin'],
+  ['/companies', 'Empresas & Contas', 'globaladmin'],
   ['/backup', 'Backup', 'admin'],
 ];
 
 // Moldura das telas de gestão: barra superior + abas (só as que o perfil pode abrir).
 export default function Shell({ title, actions, children }) {
-  const { can } = useAuth();
+  const { user, can } = useAuth();
   const location = useLocation();
   const navRef = useRef(null);
 
@@ -54,6 +55,15 @@ export default function Shell({ title, actions, children }) {
         <Link className="btn icon" to="/" aria-label="Voltar ao mapa"><Icon name="back" /></Link>
         <h1>{title}</h1>
         <div className="spacer" />
+        {user?.company_name ? (
+          <span className="badge off hide-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', fontSize: 13, background: 'rgba(255,255,255,0.06)', borderRadius: 20 }}>
+            🏢 {user.company_name}
+          </span>
+        ) : user?.role === 'globaladmin' ? (
+          <Link to="/companies" className="badge off hide-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', fontSize: 13, background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', borderRadius: 20, textDecoration: 'none' }}>
+            👑 Global Admin
+          </Link>
+        ) : null}
         {actions && <div className="topbar-actions">{actions}</div>}
         <Link className="btn hide-sm" to="/">Ver mapa</Link>
         <UserMenu />

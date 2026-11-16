@@ -4,7 +4,7 @@ import { api } from '../api.js';
 
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
-const LEVEL = { viewer: 1, operator: 2, admin: 3 };
+const LEVEL = { viewer: 1, operator: 2, admin: 3, globaladmin: 4 };
 
 export function AuthProvider({ children }) {
   const [state, setState] = useState({ loading: true, user: null, config: { setup_needed: false, public_view: false }, error: false });
@@ -30,7 +30,12 @@ export function AuthProvider({ children }) {
   const value = useMemo(() => ({
     ...state,
     refresh,
+    isGlobalAdmin: state.user?.role === 'globaladmin',
     can: (role) => !!state.user && LEVEL[state.user.role] >= LEVEL[role],
+    selectCompany: async (id) => {
+      await api.selectCompany(id);
+      await refresh();
+    },
     login: async (username, password, captcha, captcha_token) => {
       const { user } = await api.login(username, password, captcha, captcha_token);
       setState((s) => ({ ...s, user }));
