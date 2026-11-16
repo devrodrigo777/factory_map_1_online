@@ -817,24 +817,24 @@ export default function Backup() {
             }
           >
             <div className="danger-modal-body">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#f87171' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#b91c1c' }}>
                 <Icon name="alert" size={24} />
-                <strong>Atenção: esta ação é irreversível!</strong>
+                <strong style={{ fontSize: 15 }}>Atenção: esta ação é irreversível!</strong>
               </div>
-              <p style={{ margin: 0, fontSize: 14, color: '#cbd5e1' }}>
+              <p style={{ margin: 0, fontSize: 14, color: 'var(--ink, #1f2937)', lineHeight: 1.5 }}>
                 {dangerModal.desc}
               </p>
-              <div style={{ background: '#111a26', border: '1px solid #243548', borderRadius: 8, padding: 12 }}>
-                <p style={{ margin: '0 0 8px', fontSize: 13, color: '#94a3b8' }}>
+              <div style={{ background: '#f8fafc', border: '1px solid var(--line, #e2e8f0)', borderRadius: 10, padding: 14 }}>
+                <p style={{ margin: '0 0 8px', fontSize: 13, color: 'var(--steel, #64748b)' }}>
                   Para confirmar, digite exatamente a palavra-chave abaixo:
                 </p>
-                <div style={{ textAlign: 'center', margin: '4px 0 10px' }}>
+                <div style={{ textAlign: 'center', margin: '6px 0 12px' }}>
                   <span className="danger-keyword-badge">{dangerModal.keyword}</span>
                 </div>
                 <input
                   type="text"
                   className="field-input"
-                  style={{ width: '100%', boxSizing: 'border-box', textAlign: 'center', fontWeight: 'bold', letterSpacing: '0.05em' }}
+                  style={{ width: '100%', boxSizing: 'border-box', textAlign: 'center', fontWeight: 'bold', letterSpacing: '0.05em', background: '#fff', border: '1px solid var(--line, #cbd5e1)', borderRadius: 8, padding: '10px 12px', fontSize: 15 }}
                   placeholder={`Digite ${dangerModal.keyword}`}
                   value={typedKeyword}
                   onChange={(e) => setTypedKeyword(e.target.value)}

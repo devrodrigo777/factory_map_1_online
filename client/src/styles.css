@@ -978,44 +978,46 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
    Área de Risco (Danger Zone) - Guia Conta
    ===================================================================== */
 .danger-zone-card {
-  border: 1px solid rgba(239, 68, 68, 0.45);
-  background: linear-gradient(180deg, rgba(239, 68, 68, 0.08) 0%, rgba(20, 28, 40, 0.6) 100%);
+  background: #fff;
+  border: 1px solid #f87171;
   border-radius: 12px;
-  padding: 20px;
-  margin-top: 8px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 .danger-zone-header {
   display: flex;
   align-items: center;
   gap: 10px;
-  color: #ef4444;
-  margin-bottom: 8px;
+  color: #b91c1c;
 }
 .danger-zone-header h2 {
   margin: 0;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   font-weight: 700;
-  color: #ef4444;
+  color: #b91c1c;
 }
 .danger-zone-desc {
   font-size: 0.92rem;
-  color: #cbd5e1;
+  color: var(--steel, #5a6e85);
   line-height: 1.5;
-  margin-bottom: 20px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+  margin: 0;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line, #e2e8f0);
 }
 .danger-item-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 20px;
-  padding: 16px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line, #e2e8f0);
 }
 .danger-item-row:last-child {
   border-bottom: none;
-  padding-bottom: 4px;
+  padding-bottom: 2px;
 }
 .danger-item-info {
   display: flex;
@@ -1023,14 +1025,15 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
   gap: 4px;
 }
 .danger-item-info strong {
-  font-size: 1rem;
-  color: #f87171;
+  font-size: 0.98rem;
+  color: #b91c1c;
+  font-weight: 600;
 }
 .danger-item-info p {
   margin: 0;
-  font-size: 0.85rem;
-  color: #94a3b8;
-  line-height: 1.4;
+  font-size: 0.88rem;
+  color: var(--steel, #5a6e85);
+  line-height: 1.45;
 }
 .danger-modal-body {
   display: flex;
@@ -1042,10 +1045,10 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
   font-family: monospace;
   font-size: 14px;
   font-weight: 700;
-  background: rgba(239, 68, 68, 0.2);
-  color: #fca5a5;
-  border: 1px solid rgba(239, 68, 68, 0.4);
-  padding: 3px 8px;
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+  padding: 4px 10px;
   border-radius: 6px;
   letter-spacing: 0.05em;
   user-select: all;
