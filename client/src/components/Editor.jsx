@@ -75,6 +75,11 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
   const cancelDraft = () => { setDraft([]); setHover(null); };
   const chooseTool = (t) => { setTool(t); cancelDraft(); if (t !== 'select') setSel(null); };
 
+  const handleHover = (pt) => {
+    if (!pt) { setHover(null); return; }
+    setHover(norm(pt));
+  };
+
   const onTap = (pt) => {
     if (tool === 'select') return setSel(null);
     const p = norm(pt);
@@ -311,7 +316,7 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
             map={map}
             overlay={overlay}
             onTap={onTap}
-            onHover={tool !== 'select' && draft.length ? setHover : undefined}
+            onHover={tool !== 'select' && draft.length ? handleHover : undefined}
             className={tool !== 'select' ? 'is-drawing' : ''}
           />
           <p className="canvas-hint">{hint}</p>

@@ -218,6 +218,10 @@ export default function usePanZoom({ width, height, onTap, onHover }) {
     }
   };
 
+  const onPointerLeave = (e) => {
+    if (e.pointerType === 'mouse') cb.current.onHover?.(null);
+  };
+
   // roda do mouse / trackpad (precisa de listener nativo não-passivo)
   useEffect(() => {
     const el = containerRef.current;
@@ -250,7 +254,7 @@ export default function usePanZoom({ width, height, onTap, onHover }) {
     view,
     mode,
     dragging,
-    handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp },
+    handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp, onPointerLeave },
     fit,
     zoomToBox,
     zoomBy,

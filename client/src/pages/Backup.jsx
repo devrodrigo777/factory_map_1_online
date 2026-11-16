@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import { useAuth } from '../components/Auth.jsx';
 import Shell from '../components/Shell.jsx';
+import Modal from '../components/Modal.jsx';
 import Icon from '../components/Icons.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { formatBytes, formatDateTime, formatInt } from '../format.js';
@@ -41,6 +42,7 @@ export default function Backup() {
   const [syncScope, setSyncScope] = useState(() => localStorage.getItem('sync_scope_pref') || 'full');
   const [syncDirection, setSyncDirection] = useState('send'); // 'send' | 'receive'
   const [syncExportData, setSyncExportData] = useState(null);
+  const [syncExportModalOpen, setSyncExportModalOpen] = useState(false);
   const [receiveCode, setReceiveCode] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
   const [receiveMode, setReceiveMode] = useState('replace');
@@ -112,7 +114,8 @@ export default function Backup() {
     try {
       const res = await api.exportSyncPackage(syncScope);
       setSyncExportData(res);
-      toast('Código e QR Code de sincronização gerados!');
+      setSyncExportModalOpen(true);
+      toast('Código e dados de sincronização gerados com sucesso!');
     } catch (e) {
       fail(e);
     } finally {
@@ -260,43 +263,31 @@ export default function Backup() {
                 <div style={{ marginTop: 18 }}>
                   <div className="row">
                     <button className="btn primary" onClick={handleGenerateSync} disabled={busy}>
-                      <Icon name="swap" /> {busy ? 'Gerando pacote…' : 'Gerar código de sincronização'}
+                      <Icon name="swap" /> {busy ? 'Iniciando processo…' : 'Iniciar Processo de Sincronização'}
                     </button>
+                    {syncExportData && (
+                      <button className="btn" onClick={() => setSyncExportModalOpen(true)}>
+                        <Icon name="qr" /> Ver código gerado
+                      </button>
+                    )}
                   </div>
 
                   {syncExportData && (
-                    <div style={{ marginTop: 20 }}>
-                      <DynamicSyncCode
-                        code={syncExportData.code}
-                        onCopy={() => toast('Código de sincronização copiado!')}
-                      />
-
-                      <dl className="facts" style={{ marginTop: 16, marginBottom: 16 }}>
-                        <div><dt>Tipo</dt><dd>{TYPE_NAME[syncExportData.manifest.type]}</dd></div>
-                        <div><dt>Registros</dt><dd>{formatInt(syncExportData.manifest.counts.records)}</dd></div>
-                        {syncExportData.manifest.type === 'full' && (
-                          <div><dt>Plantas / Áreas</dt><dd>{syncExportData.manifest.counts.maps} / {syncExportData.manifest.counts.areas}</dd></div>
-                        )}
-                        <div><dt>Tamanho comprimido</dt><dd>{formatBytes(syncExportData.compressedBytes)}</dd></div>
-                        <div><dt>Gerado em</dt><dd>{formatDateTime(syncExportData.manifest.created_at)}</dd></div>
-                      </dl>
-
-                      <label className="field">
-                        <span>Código para transferência manual direta (ideal entre notebooks):</span>
-                        <textarea
-                          readOnly
-                          rows={3}
-                          value={syncExportData.code}
-                          className="sync-code-area"
-                          onClick={(e) => e.target.select()}
-                        />
-                      </label>
-
-                      <div className="row" style={{ marginTop: 8 }}>
-                        <button type="button" className={`btn ${copiedSync ? 'primary' : ''}`} onClick={handleCopySyncCode}>
-                          <Icon name={copiedSync ? 'check' : 'file'} size={16} />
-                          <span>{copiedSync ? 'Código copiado!' : 'Copiar código de sincronização'}</span>
-                        </button>
+                    <div style={{ marginTop: 16 }}>
+                      <div className="card-callout" style={{ background: '#f4f8fc', border: '1px solid #bfdbfe', borderRadius: 10, padding: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+                          <div>
+                            <strong style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <Icon name="check" size={16} /> Pacote de sincronização disponível
+                            </strong>
+                            <small className="muted" style={{ display: 'block', marginTop: 2 }}>
+                              {TYPE_NAME[syncExportData.manifest.type]} ({formatInt(syncExportData.manifest.counts.records)} registros) — {formatBytes(syncExportData.compressedBytes)}
+                            </small>
+                          </div>
+                          <button type="button" className="btn primary" onClick={() => setSyncExportModalOpen(true)}>
+                            Abrir transmissão / código
+                          </button>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -603,6 +594,48 @@ export default function Backup() {
               )}
             </div>
           </div>
+        )}
+        {/* Modal de Transmissão / Código de Sincronização */}
+        {syncExportModalOpen && syncExportData && (
+          <Modal title="Processo de Sincronização" onClose={() => setSyncExportModalOpen(false)}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <DynamicSyncCode
+                code={syncExportData.code}
+                onCopy={() => toast('Código de sincronização copiado!')}
+              />
+
+              <dl className="facts" style={{ marginTop: 4, marginBottom: 4 }}>
+                <div><dt>Tipo</dt><dd>{TYPE_NAME[syncExportData.manifest.type]}</dd></div>
+                <div><dt>Registros</dt><dd>{formatInt(syncExportData.manifest.counts.records)}</dd></div>
+                {syncExportData.manifest.type === 'full' && (
+                  <div><dt>Plantas / Áreas</dt><dd>{syncExportData.manifest.counts.maps} / {syncExportData.manifest.counts.areas}</dd></div>
+                )}
+                <div><dt>Tamanho comprimido</dt><dd>{formatBytes(syncExportData.compressedBytes)}</dd></div>
+                <div><dt>Gerado em</dt><dd>{formatDateTime(syncExportData.manifest.created_at)}</dd></div>
+              </dl>
+
+              <label className="field">
+                <span>Código para transferência manual direta (ideal entre notebooks):</span>
+                <textarea
+                  readOnly
+                  rows={3}
+                  value={syncExportData.code}
+                  className="sync-code-area"
+                  onClick={(e) => e.target.select()}
+                />
+              </label>
+
+              <div className="row" style={{ marginTop: 4, justifyContent: 'space-between' }}>
+                <button type="button" className={`btn ${copiedSync ? 'primary' : ''}`} onClick={handleCopySyncCode}>
+                  <Icon name={copiedSync ? 'check' : 'file'} size={16} />
+                  <span>{copiedSync ? 'Código copiado!' : 'Copiar código de sincronização'}</span>
+                </button>
+                <button type="button" className="btn ghost" onClick={() => setSyncExportModalOpen(false)}>
+                  Fechar
+                </button>
+              </div>
+            </div>
+          </Modal>
         )}
       </div>
     </Shell>

@@ -71,10 +71,6 @@ export default function DynamicSyncCode({ code, size = 320, onCopy }) {
     <div className="dynamic-sync-container">
       <div className="dynamic-sync-card">
         <div className="dynamic-sync-header">
-          <div className="sync-badge">
-            <span className="sync-pulse-dot" />
-            <span>Código Visual Dinâmico</span>
-          </div>
           <span className="sync-frame-counter">
             Quadro <strong>{frameIdx + 1}</strong> de <strong>{totalFrames}</strong>
           </span>
