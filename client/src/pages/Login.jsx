@@ -75,90 +75,91 @@ export default function Login() {
 
   return (
     <main className="login">
-      <form className="login-card" onSubmit={submit}>
-        <div className="login-mark" aria-hidden="true">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M7 11V8a5 5 0 0110 0v3M5 11h14v10H5z" />
-          </svg>
-        </div>
-        <h1>{firstRun ? 'Primeiro acesso' : 'Entrar'}</h1>
-        <p className="muted">
-          {firstRun
-            ? 'Crie o administrador do sistema. Ele poderá cadastrar os demais usuários.'
-            : 'EasyLOTOTO v2 • Gestão Visual de Bloqueios e Etiquetagens LOTOTO'}
-        </p>
-        {firstRun && (
-          <>
-            <label className="field">Nome completo
-              <input value={form.name} onChange={set('name')} autoComplete="name" required autoFocus />
-            </label>
-            <label className="field">Nome da primeira empresa
-              <input value={form.company_name} onChange={set('company_name')} placeholder="Ex.: Fábrica Matriz" />
-              <small style={{ color: 'var(--muted, #94a3b8)', fontSize: 12 }}>Você terá perfil de Administrador Global e poderá cadastrar mais empresas a qualquer momento.</small>
-            </label>
-          </>
-        )}
-        <label className="field">Usuário
-          <input value={form.username} onChange={set('username')} onBlur={checkUsernameCaptcha} autoComplete="username" autoCapitalize="none" required autoFocus={!firstRun} />
-        </label>
-        <label className="field">Senha{firstRun ? ' (mín. 8 caracteres)' : ''}
-          <input type="password" value={form.password} onChange={set('password')} autoComplete={firstRun ? 'new-password' : 'current-password'} required />
-        </label>
-        {firstRun && (
-          <label className="field">Repita a senha
-            <input type="password" value={form.again} onChange={set('again')} autoComplete="new-password" required />
-          </label>
-        )}
-
-        {needCaptcha && (
-          <div className="captcha-block">
-            <label className="field">
-              <span style={{ fontSize: 13, fontWeight: 600 }}>Verificação de segurança</span>
-              <div className="captcha-row" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0' }}>
-                {captchaData ? (
-                  <img src={captchaData.svg} alt="Código de verificação" style={{ height: 44, borderRadius: 8 }} />
-                ) : (
-                  <div style={{ height: 44, width: 170, background: '#1c2836', borderRadius: 8, display: 'grid', placeItems: 'center', fontSize: 13, color: '#94a3b8' }}>Carregando…</div>
-                )}
-                <button type="button" className="btn icon ghost" onClick={fetchCaptcha} title="Gerar outro código" aria-label="Gerar outro código">
-                  <Icon name="swap" />
-                </button>
-              </div>
-              <input
-                value={captchaInput}
-                onChange={(e) => setCaptchaInput(e.target.value.toUpperCase())}
-                placeholder="Digite os 5 caracteres acima"
-                maxLength={5}
-                autoCapitalize="characters"
-                autoComplete="off"
-                spellCheck={false}
-                style={{ textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 'bold' }}
-                required
-              />
-            </label>
+      <div className="login-pane">
+        <form className="login-card" onSubmit={submit}>
+          <div className="login-mark" aria-hidden="true">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M7 11V8a5 5 0 0110 0v3M5 11h14v10H5z" />
+            </svg>
           </div>
-        )}
+          <h1>{firstRun ? 'Primeiro acesso' : 'Entrar'}</h1>
+          <p className="muted">
+            {firstRun
+              ? 'Crie o administrador do sistema. Ele poderá cadastrar os demais usuários.'
+              : 'EasyLOTOTO v2 • Gestão Visual de Bloqueios e Etiquetagens LOTOTO'}
+          </p>
+          {firstRun && (
+            <>
+              <label className="field">Nome completo
+                <input value={form.name} onChange={set('name')} autoComplete="name" required autoFocus />
+              </label>
+              <label className="field">Nome da primeira empresa
+                <input value={form.company_name} onChange={set('company_name')} placeholder="Ex.: Fábrica Matriz" />
+                <small style={{ color: 'var(--muted, #94a3b8)', fontSize: 12 }}>Você terá perfil de Administrador Global e poderá cadastrar mais empresas a qualquer momento.</small>
+              </label>
+            </>
+          )}
+          <label className="field">Usuário
+            <input value={form.username} onChange={set('username')} onBlur={checkUsernameCaptcha} autoComplete="username" autoCapitalize="none" required autoFocus={!firstRun} />
+          </label>
+          <label className="field">Senha{firstRun ? ' (mín. 8 caracteres)' : ''}
+            <input type="password" value={form.password} onChange={set('password')} autoComplete={firstRun ? 'new-password' : 'current-password'} required />
+          </label>
+          {firstRun && (
+            <label className="field">Repita a senha
+              <input type="password" value={form.again} onChange={set('again')} autoComplete="new-password" required />
+            </label>
+          )}
 
-        {error && <p className="expr-test err" role="alert">{error}</p>}
-        <button className="btn primary wide" disabled={busy}>{busy ? 'Aguarde…' : firstRun ? 'Criar administrador' : 'Entrar'}</button>
-        {!firstRun && config.public_view && <a className="login-public" href={loc.state?.from || '/'}>Ver o mapa sem entrar</a>}
-      </form>
+          {needCaptcha && (
+            <div className="captcha-block">
+              <label className="field">
+                <span style={{ fontSize: 13, fontWeight: 600 }}>Verificação de segurança</span>
+                <div className="captcha-row" style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '4px 0' }}>
+                  {captchaData ? (
+                    <img src={captchaData.svg} alt="Código de verificação" style={{ height: 44, borderRadius: 8 }} />
+                  ) : (
+                    <div style={{ height: 44, width: 170, background: '#1c2836', borderRadius: 8, display: 'grid', placeItems: 'center', fontSize: 13, color: '#94a3b8' }}>Carregando…</div>
+                  )}
+                  <button type="button" className="btn icon ghost" onClick={fetchCaptcha} title="Gerar outro código" aria-label="Gerar outro código">
+                    <Icon name="swap" />
+                  </button>
+                </div>
+                <input
+                  value={captchaInput}
+                  onChange={(e) => setCaptchaInput(e.target.value.toUpperCase())}
+                  placeholder="Digite os 5 caracteres acima"
+                  maxLength={5}
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  spellCheck={false}
+                  style={{ textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 'bold' }}
+                  required
+                />
+              </label>
+            </div>
+          )}
 
-      <div className="login-sub-links" style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, fontSize: 13, flexWrap: 'wrap' }}>
-        <button
-          type="button"
-          onClick={() => setAboutOpen(true)}
-          style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 0, fontSize: 13, textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: 6 }}
-        >
-          <Icon name="info" size={15} /> Sobre o EasyLOTOTO for Knauf
-        </button>
-        <span style={{ color: '#475569' }}>•</span>
-        <Link
-          to="/manual"
-          style={{ color: '#94a3b8', fontSize: 13, textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: 6 }}
-        >
-          <Icon name="file" size={15} /> Manual de Uso
-        </Link>
+          {error && <p className="expr-test err" role="alert">{error}</p>}
+          <button className="btn primary wide" disabled={busy}>{busy ? 'Aguarde…' : firstRun ? 'Criar administrador' : 'Entrar'}</button>
+          {!firstRun && config.public_view && <a className="login-public" href={loc.state?.from || '/'}>Ver o mapa sem entrar</a>}
+        </form>
+
+        <div className="login-sub-links">
+          <button
+            type="button"
+            className="login-sub-link-btn"
+            onClick={() => setAboutOpen(true)}
+          >
+            <Icon name="info" size={15} /> Sobre o EasyLOTOTO for Knauf
+          </button>
+          <Link
+            to="/manual"
+            className="login-sub-link-btn"
+          >
+            <Icon name="file" size={15} /> Manual de Uso
+          </Link>
+        </div>
       </div>
 
       {aboutOpen && (
