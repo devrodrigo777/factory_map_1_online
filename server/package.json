@@ -7,7 +7,6 @@
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
     "seed": "node src/seed.js",
-    "manual": "node src/generate_manual_pdf.js",
     "user": "node src/users-cli.js"
   },
   "dependencies": {
