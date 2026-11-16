@@ -134,4 +134,4 @@ db.transaction(() => {
   addRec('Expedição', 'Doca 4', 2, null);
 })();
 
-console.log('Planta de exemplo e registros de LOTO criados. Abra http://localhost:3001');
+console.log('Planta de exemplo e registros de LOTOTO criados. Abra http://localhost:3001');

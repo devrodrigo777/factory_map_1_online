@@ -83,7 +83,7 @@ export default function Login() {
         <p className="muted">
           {firstRun
             ? 'Crie o administrador do sistema. Ele poderá cadastrar os demais usuários.'
-            : 'Mapa de bloqueios LOTO'}
+            : 'Mapa de bloqueios LOTOTO'}
         </p>
         {firstRun && (
           <>

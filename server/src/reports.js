@@ -169,7 +169,7 @@ function gantt(doc, { rows, from, to }) {
 
 // ---------- montagem do documento ----------
 async function renderPdf(res, { filename, title, subtitle, user }, build) {
-  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: M, left: M, right: M, bottom: M + 8 }, bufferPages: true, info: { Title: title, Author: 'Mapa de bloqueios LOTO' } });
+  const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margins: { top: M, left: M, right: M, bottom: M + 8 }, bufferPages: true, info: { Title: title, Author: 'Mapa de bloqueios LOTOTO' } });
   const chunks = [];
   doc.on('data', (c) => chunks.push(c));
   const done = new Promise((ok) => doc.on('end', ok));
@@ -195,7 +195,7 @@ async function renderPdf(res, { filename, title, subtitle, user }, build) {
     const b = doc.page.margins.bottom;
     doc.page.margins.bottom = 0;
     doc.font('Helvetica').fontSize(8).fillColor(STEEL);
-    doc.text('Mapa de bloqueios LOTO', M, doc.page.height - 26, { lineBreak: false });
+    doc.text('Mapa de bloqueios LOTOTO', M, doc.page.height - 26, { lineBreak: false });
     doc.text(`Página ${i + 1} de ${range.count}`, M, doc.page.height - 26, { width: W, align: 'right', lineBreak: false });
     doc.page.margins.bottom = b;
   }

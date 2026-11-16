@@ -284,7 +284,7 @@ export default function Backup() {
               <div className="danger-item-row">
                 <div className="danger-item-info">
                   <strong>Excluir dados</strong>
-                  <p>Remove todos os registros LOTO de bloqueio, histórico de alterações e histórico de importações do ambiente atual. Suas plantas, áreas, campos e KPIs permanecem intactos.</p>
+                  <p>Remove todos os registros LOTOTO de bloqueio, histórico de alterações e histórico de importações do ambiente atual. Suas plantas, áreas, campos e KPIs permanecem intactos.</p>
                 </div>
                 <button
                   type="button"

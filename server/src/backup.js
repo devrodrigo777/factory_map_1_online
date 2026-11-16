@@ -82,7 +82,7 @@ function prune(dir, prefix, keep) {
 }
 
 /** Cria o backup no servidor; opcionalmente guarda só os últimos `keep` e copia para outra pasta. */
-export async function runBackup({ type = 'full', includeUsers = false, prefix = 'loto', keep = 0, copyTo = '' } = {}) {
+export async function runBackup({ type = 'full', includeUsers = false, prefix = 'lototo', keep = 0, copyTo = '' } = {}) {
   const { buffer, manifest } = await buildBackup(type, { includeUsers });
   const backupDir = getBackupDir();
   let name = `${prefix}-${type}-${stamp()}.zip`;
@@ -259,7 +259,7 @@ router.get('/export/records.xlsx', wrap(async (_req, res) => {
   const st = getStore();
   const { fields } = st.ctx;
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', `attachment; filename="registros-loto-${stamp().slice(0, 8)}.xlsx"`);
+  res.setHeader('Content-Disposition', `attachment; filename="registros-lototo-${stamp().slice(0, 8)}.xlsx"`);
   const wb = new ExcelJS.stream.xlsx.WorkbookWriter({ stream: res, useStyles: true, useSharedStrings: false });
   const ws = wb.addWorksheet('Registros', { views: [{ state: 'frozen', ySplit: 1 }] });
   ws.columns = [

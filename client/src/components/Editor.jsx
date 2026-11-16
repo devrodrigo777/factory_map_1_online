@@ -728,7 +728,7 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
               </section>
 
               <section className="panel" key={`lock-${selArea.uid}`}>
-                <h2>Cadeado (LOTO)</h2>
+                <h2>Cadeado (LOTOTO)</h2>
                 <label className="check">
                   <input type="checkbox" checked={selArea.show_lock} onChange={(e) => patchArea(selArea.uid, { show_lock: e.target.checked })} />
                   Mostrar cadeado quando houver bloqueio ativo

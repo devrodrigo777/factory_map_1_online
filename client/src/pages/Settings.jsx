@@ -104,7 +104,7 @@ function FolderField({ label, value, onChange, write, hint }) {
   return (
     <div className="field">{label}
       <div className="folder-row">
-        <input value={value} onChange={(e) => { onChange(e.target.value); setRes(null); }} placeholder="Ex.: D:\Backups\LOTO ou \\servidor\pasta" spellCheck={false} />
+        <input value={value} onChange={(e) => { onChange(e.target.value); setRes(null); }} placeholder="Ex.: D:\Backups\LOTOTO ou \\servidor\pasta" spellCheck={false} />
         <button type="button" className="btn" onClick={test} disabled={!value.trim()}>Testar pasta</button>
       </div>
       {hint && <small>{hint}</small>}
