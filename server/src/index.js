@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { db, getDb, masterDb, getTenantDb, tenantContext, UPLOAD_DIR } from './db.js';
+import { db, getDb, masterDb, getTenantDb, tenantContext, UPLOAD_DIR, findCompanyBySlugOrName } from './db.js';
 import { router as loto } from './loto.js';
 import { validateExpr } from './core.js';
 import { guard, router as authRouter, uploadsGuard, userFromRequest } from './auth.js';
@@ -27,6 +27,11 @@ app.use((_req, res, next) => {
 });
 app.use(express.json({ limit: '15mb' }));
 
+const RESERVED_ROUTES = new Set([
+  'api', 'uploads', 'login', 'dashboard', 'records', 'import',
+  'fields', 'admin', 'reports', 'settings', 'users', 'companies', 'backup'
+]);
+
 // Middleware de isolamento multi-tenant: vincula a requisição à empresa correta
 function tenantMiddleware(req, _res, next) {
   if (!req.user) req.user = userFromRequest(req);
@@ -36,9 +41,13 @@ function tenantMiddleware(req, _res, next) {
     if (req.user.role === 'globaladmin') {
       const headerCid = req.headers['x-company-id'];
       const queryCid = req.query.company_id;
+      const headerSlug = req.headers['x-company'] || req.headers['x-company-slug'];
       const sessionCid = req.user.active_company_id;
       if (headerCid && !Number.isNaN(Number(headerCid))) {
         targetCompanyId = Number(headerCid);
+      } else if (headerSlug) {
+        const found = findCompanyBySlugOrName(headerSlug);
+        if (found) targetCompanyId = found.id;
       } else if (queryCid && !Number.isNaN(Number(queryCid))) {
         targetCompanyId = Number(queryCid);
       } else if (sessionCid) {
@@ -52,16 +61,36 @@ function tenantMiddleware(req, _res, next) {
       targetCompanyId = req.user.company_id || 1;
     }
   } else {
-    // Acesso não autenticado / público (ex.: mapas em visão pública)
+    // Acesso não autenticado / público (ex.: mapas em visão pública por empresa)
     const headerCid = req.headers['x-company-id'];
     const queryCid = req.query.company_id;
-    if (headerCid && !Number.isNaN(Number(headerCid))) {
-      targetCompanyId = Number(headerCid);
-    } else if (queryCid && !Number.isNaN(Number(queryCid))) {
-      targetCompanyId = Number(queryCid);
-    } else {
-      const first = masterDb.prepare('SELECT id FROM companies WHERE active = 1 ORDER BY id ASC LIMIT 1').get();
-      targetCompanyId = first?.id || 1;
+    const companyParam = req.headers['x-company'] || req.headers['x-company-slug'] || req.query.company || req.query.company_slug;
+
+    if (companyParam) {
+      const found = findCompanyBySlugOrName(String(companyParam));
+      if (found) targetCompanyId = found.id;
+    }
+
+    if (!targetCompanyId && req.headers.referer) {
+      try {
+        const refUrl = new URL(req.headers.referer);
+        const firstSeg = refUrl.pathname.split('/').filter(Boolean)[0];
+        if (firstSeg && !RESERVED_ROUTES.has(firstSeg)) {
+          const found = findCompanyBySlugOrName(decodeURIComponent(firstSeg));
+          if (found) targetCompanyId = found.id;
+        }
+      } catch {}
+    }
+
+    if (!targetCompanyId) {
+      if (headerCid && !Number.isNaN(Number(headerCid))) {
+        targetCompanyId = Number(headerCid);
+      } else if (queryCid && !Number.isNaN(Number(queryCid))) {
+        targetCompanyId = Number(queryCid);
+      } else {
+        const first = masterDb.prepare('SELECT id FROM companies WHERE active = 1 ORDER BY id ASC LIMIT 1').get();
+        targetCompanyId = first?.id || 1;
+      }
     }
   }
 

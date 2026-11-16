@@ -3,7 +3,7 @@ import { Router } from 'express';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { masterDb, db, getSetting, setSetting, createTenantCompany, closeTenantDb, DATA_DIR, UPLOAD_DIR, TENANTS_DIR } from './db.js';
+import { masterDb, db, getDb, getTenantDb, getSetting, setSetting, createTenantCompany, closeTenantDb, DATA_DIR, UPLOAD_DIR, TENANTS_DIR, findCompanyBySlugOrName } from './db.js';
 import { generateCaptcha, verifyCaptcha } from './captcha.js';
 import { invalidate } from './store.js';
 
@@ -162,7 +162,32 @@ export function guard(req, res, next) {
 }
 
 export function uploadsGuard(req, res, next) {
-  if (userFromRequest(req) || (publicViewOn() && userCount() > 0)) return next();
+  if (userFromRequest(req)) return next();
+  let allowed = false;
+  if (req.headers.referer) {
+    try {
+      const refUrl = new URL(req.headers.referer);
+      const firstSeg = refUrl.pathname.split('/').filter(Boolean)[0];
+      if (firstSeg && !['api', 'uploads', 'login', 'dashboard', 'records', 'import', 'fields', 'admin', 'reports', 'settings', 'users', 'companies', 'backup'].includes(firstSeg)) {
+        const found = findCompanyBySlugOrName(decodeURIComponent(firstSeg));
+        if (found) {
+          const tDb = getTenantDb(found.id);
+          if (tDb?.prepare("SELECT value FROM settings WHERE key = 'public_view'").get()?.value === '1') {
+            allowed = true;
+          }
+        }
+      }
+    } catch {}
+  }
+  if (!allowed) {
+    const anyPublic = masterDb.prepare('SELECT id FROM companies WHERE active = 1').all()
+      .some((c) => {
+        const tDb = getTenantDb(c.id);
+        return tDb?.prepare("SELECT value FROM settings WHERE key = 'public_view'").get()?.value === '1';
+      });
+    if (anyPublic) allowed = true;
+  }
+  if (allowed) return next();
   res.status(401).end();
 }
 
@@ -234,7 +259,21 @@ router.get('/auth/config', (req, res) => {
       }
     }
   }
-  res.json({ setup_needed: userCount() === 0, public_view: publicViewOn(), captcha_required: needCaptcha });
+
+  let pubView = false;
+  try {
+    pubView = publicViewOn();
+  } catch {}
+
+  const targetId = req.companyId || (masterDb.prepare('SELECT id FROM companies WHERE active = 1 ORDER BY id ASC LIMIT 1').get()?.id) || 1;
+  const comp = masterDb.prepare('SELECT id, name, slug FROM companies WHERE id = ?').get(targetId);
+
+  res.json({
+    setup_needed: userCount() === 0,
+    public_view: pubView,
+    captcha_required: needCaptcha,
+    company: comp || null,
+  });
 });
 router.get('/auth/captcha', (_req, res) => res.json(generateCaptcha()));
 router.get('/auth/me', (req, res) => res.json({ user: req.user ? userOut(req.user) : null }));

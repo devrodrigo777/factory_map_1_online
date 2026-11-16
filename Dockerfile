@@ -1,5 +1,5 @@
 # =====================================================================
-# Dockerfile para Coolify / VPS - Mapa da Fábrica (LOTO)
+# Dockerfile de Produção - Mapa da Fábrica (LOTO)
 # Multi-stage build desacoplado: compila frontend e backend para Alpine
 # =====================================================================
 
@@ -46,7 +46,7 @@ COPY --from=client-builder /app/client/dist ./client/dist
 # Cria diretório de dados persistentes e uploads
 RUN mkdir -p /app/server/data/uploads
 
-# Volume para persistência de dados no Coolify / Docker
+# Volume para persistência de dados no Docker
 VOLUME ["/app/server/data"]
 
 # Porta padrão de execução

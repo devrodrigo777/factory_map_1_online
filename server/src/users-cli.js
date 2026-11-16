@@ -1,4 +1,4 @@
-// Cria um usuário ou redefine a senha no VPS multi-tenant.
+// Cria um usuário ou redefine a senha no servidor multi-tenant.
 // Uso: npm run user -- <login> <senha> [globaladmin|admin|operator|viewer] [company_slug_ou_id]
 import { masterDb } from './db.js';
 import { hashPassword, ROLES } from './auth.js';

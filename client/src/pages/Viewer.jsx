@@ -41,7 +41,7 @@ function LockMarker({ x, y, k, count, label, color, onOpen }) {
 
 export default function Viewer() {
   const toast = useToast();
-  const { user, can } = useAuth();
+  const { user, can, config } = useAuth();
   const stageRef = useRef(null);
   const cache = useRef(new Map());
   const busyRef = useRef(false);
@@ -82,7 +82,9 @@ export default function Viewer() {
       .catch(() => setStatus('error'));
   }, [fetchMap]);
 
-  useEffect(loadRoot, [loadRoot]);
+  useEffect(() => {
+    loadRoot();
+  }, [loadRoot, config?.company?.id]);
 
   const openArea = async (area) => {
     if (busyRef.current || phase !== 'idle') return;
@@ -192,7 +194,7 @@ export default function Viewer() {
       <div className="center-screen">
         <h1>Nenhuma planta cadastrada</h1>
         <p>Envie a imagem da planta da fábrica no painel admin para começar.</p>
-        <Link className="btn primary" to="/admin">Abrir painel admin</Link>
+        <Link className="btn primary" to={user ? '/admin' : '/login'}>{user ? 'Abrir painel admin' : 'Entrar'}</Link>
       </div>
     );
   }
@@ -261,6 +263,11 @@ export default function Viewer() {
           ))}
         </nav>
         <div className="spacer" />
+        {!user && config?.company?.name && (
+          <span className="badge off hide-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', fontSize: 12, background: 'rgba(255,255,255,0.08)', borderRadius: 20 }}>
+            🏢 {config.company.name}
+          </span>
+        )}
         {user?.role === 'globaladmin' && (
           <div className="hide-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
             <Link to="/companies" className="badge off" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', fontSize: 12, background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: 20, textDecoration: 'none' }}>

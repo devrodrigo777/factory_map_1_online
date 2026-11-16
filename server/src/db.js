@@ -256,6 +256,19 @@ export function createTenantCompany({ name, slug }) {
   return { id, name: n, slug: s, active: 1 };
 }
 
+// Busca empresa ativa por identificador (slug) ou nome
+export function findCompanyBySlugOrName(term) {
+  if (!term || typeof term !== 'string') return null;
+  const t = term.trim();
+  const slugified = t.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+  return masterDb.prepare(`
+    SELECT * FROM companies
+    WHERE (slug = ? OR slug = ? OR name = ? COLLATE NOCASE)
+      AND active = 1
+    LIMIT 1
+  `).get(t, slugified, t);
+}
+
 // Migração de banco legado de versão anterior sem multi-tenant (se existir data/factory.db)
 function checkLegacyMigration() {
   const legacyDbPath = path.join(DATA_DIR, 'factory.db');

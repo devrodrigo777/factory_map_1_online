@@ -208,7 +208,7 @@ export default function Companies() {
           <div className="danger-item-row">
             <div className="danger-item-info">
               <strong style={{ color: '#ef4444' }}>👑 Formatar sistema completamente</strong>
-              <p>Zera completamente a instalação do servidor VPS. Exige confirmação por palavra-chave ("DELETE.ALL").</p>
+              <p>Zera completamente a instalação do servidor online. Exige confirmação por palavra-chave ("DELETE.ALL").</p>
             </div>
             <button
               type="button"

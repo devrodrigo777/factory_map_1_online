@@ -1,7 +1,29 @@
-async function request(url, options) {
+const RESERVED_PATHS = new Set([
+  'login', 'dashboard', 'records', 'import', 'fields', 'admin',
+  'reports', 'settings', 'users', 'companies', 'backup', 'api', 'uploads'
+]);
+
+export function getCompanyFromPath(pathname) {
+  if (!pathname) return null;
+  const seg = String(pathname).split('/').filter(Boolean)[0];
+  return (seg && !RESERVED_PATHS.has(seg)) ? decodeURIComponent(seg) : null;
+}
+
+let activeCompanyScope = null;
+export function setCompanyScope(scope) {
+  activeCompanyScope = scope;
+}
+
+async function request(url, options = {}) {
   let res;
+  const headers = new Headers(options.headers || {});
+  const comp = activeCompanyScope || getCompanyFromPath(window.location?.pathname);
+  if (comp && !headers.has('X-Company')) {
+    headers.set('X-Company', comp);
+  }
+  const fetchOpts = { ...options, headers };
   try {
-    res = await fetch(url, options);
+    res = await fetch(url, fetchOpts);
   } catch {
     throw new Error('Não foi possível falar com o servidor. Verifique se ele está rodando.');
   }

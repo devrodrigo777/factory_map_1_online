@@ -1,13 +1,15 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { api } from '../api.js';
+import { api, getCompanyFromPath } from '../api.js';
 
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
 const LEVEL = { viewer: 1, operator: 2, admin: 3, globaladmin: 4 };
 
 export function AuthProvider({ children }) {
-  const [state, setState] = useState({ loading: true, user: null, config: { setup_needed: false, public_view: false }, error: false });
+  const location = useLocation();
+  const currentCompany = getCompanyFromPath(location.pathname);
+  const [state, setState] = useState({ loading: true, user: null, config: { setup_needed: false, public_view: false, company: null }, error: false });
 
   const refresh = useCallback(async () => {
     try {
@@ -18,7 +20,7 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh]);
+  useEffect(() => { refresh(); }, [refresh, currentCompany]);
 
   // sessão expirada em qualquer chamada: volta para o login
   useEffect(() => {

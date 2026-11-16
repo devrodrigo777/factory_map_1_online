@@ -338,7 +338,7 @@ export default function Backup() {
                 </button>
               </div>
 
-              {/* Se for globaladmin, exibe a opção de formatação geral do VPS */}
+              {/* Se for globaladmin, exibe a opção de formatação geral online */}
               {user?.role === 'globaladmin' && (
                 <div className="danger-item-row" style={{ borderTop: '1px solid rgba(239, 68, 68, 0.4)', marginTop: 8, paddingTop: 16 }}>
                   <div className="danger-item-info">

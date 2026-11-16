@@ -34,6 +34,7 @@ export default function App() {
             <Route path="/users" element={<Protected min="admin"><Users /></Protected>} />
             <Route path="/companies" element={<Protected min="globaladmin"><Companies /></Protected>} />
             <Route path="/backup" element={<Protected min="admin"><Backup /></Protected>} />
+            <Route path="/:company" element={<Protected publicOk><Viewer /></Protected>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
           </AuthProvider>

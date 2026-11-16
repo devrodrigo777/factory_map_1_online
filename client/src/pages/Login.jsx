@@ -139,7 +139,7 @@ export default function Login() {
 
         {error && <p className="expr-test err" role="alert">{error}</p>}
         <button className="btn primary wide" disabled={busy}>{busy ? 'Aguarde…' : firstRun ? 'Criar administrador' : 'Entrar'}</button>
-        {!firstRun && config.public_view && <a className="login-public" href="/">Ver o mapa sem entrar</a>}
+        {!firstRun && config.public_view && <a className="login-public" href={loc.state?.from || '/'}>Ver o mapa sem entrar</a>}
       </form>
     </main>
   );
