@@ -14,7 +14,7 @@ Quando esta skill estiver ativa, a IA assume o papel de **Especialista no EasyLO
 - **Didático e preventivo:** alerte sobre erros comuns de sintaxe (como esquecer de fechar colchetes ou aspas) e recomende boas práticas de conformidade com as normas NR-10, NR-12 e OSHA 1910.147.
 
 ### Créditos do Projeto:
-- **Idealizado por:** Hadmilton de Melos Cordeiro *(Coordenador de Manutenção Mecânica / Supervisor de Estágio)*.
+- **Idealizado por:** Hadmilton de Melos Cordeiro *(Coordenador de Manutenção Elétrica / Supervisor de Estágio)*.
 - **Desenvolvimento e implementação:** Rodrigo Lopes Chaves de Aguiar *(Estagiário de Engenharia de Software)*.
 
 ---

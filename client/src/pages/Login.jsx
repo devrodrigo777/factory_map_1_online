@@ -148,30 +148,47 @@ export default function Login() {
         <button
           type="button"
           onClick={() => setAboutOpen(true)}
-          style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 0, fontSize: 13, textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: 5 }}
+          style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 0, fontSize: 13, textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: 6 }}
         >
-          <Icon name="info" size={14} /> Sobre o EasyLOTOTO for Knauf
+          <Icon name="info" size={15} /> Sobre o EasyLOTOTO for Knauf
         </button>
         <span style={{ color: '#475569' }}>•</span>
         <Link
           to="/manual"
-          style={{ color: '#94a3b8', fontSize: 13, textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: 5 }}
+          style={{ color: '#94a3b8', fontSize: 13, textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: 6 }}
         >
-          <Icon name="file" size={14} /> Manual de Uso
+          <Icon name="file" size={15} /> Manual de Uso
         </Link>
       </div>
 
       {aboutOpen && (
         <Modal title="Sobre o EasyLOTOTO for Knauf" onClose={() => setAboutOpen(false)}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            <div>
-              <h4 style={{ margin: '0 0 6px', color: '#fff', fontSize: '1rem' }}>Apresentação do Sistema</h4>
-              <p style={{ margin: 0, color: 'var(--steel, #94a3b8)', lineHeight: 1.5, fontSize: '0.92rem' }}>
-                O <strong>EasyLOTOTO for Knauf</strong> é um sistema simples desenvolvido para a gestão visual de bloqueios e etiquetagens de energia perigosa (LOTOTO - Lockout, Tagout, Tryout) na fábrica.
-              </p>
-              <p style={{ margin: '8px 0 0', color: 'var(--steel, #94a3b8)', lineHeight: 1.5, fontSize: '0.92rem' }}>
-                O sistema permite visualizar a planta fabril com a demarcação das áreas e equipamentos, sinalizando claramente onde existem intervenções ativas de manutenção e prevenindo acidentes de trabalho com fontes de energia perigosa.
-              </p>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+              <div style={{
+                width: 38,
+                height: 38,
+                borderRadius: 8,
+                background: 'rgba(56, 189, 248, 0.1)',
+                border: '1px solid rgba(56, 189, 248, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#38bdf8',
+                flexShrink: 0,
+                marginTop: 2
+              }}>
+                <Icon name="info" size={20} />
+              </div>
+              <div>
+                <h4 style={{ margin: '0 0 6px', color: '#fff', fontSize: '1rem' }}>Apresentação do Sistema</h4>
+                <p style={{ margin: 0, color: 'var(--steel, #94a3b8)', lineHeight: 1.5, fontSize: '0.92rem' }}>
+                  O <strong>EasyLOTOTO for Knauf</strong> é um sistema simples desenvolvido para a gestão visual de bloqueios e etiquetagens de energia perigosa (LOTOTO - Lockout, Tagout, Tryout) na fábrica.
+                </p>
+                <p style={{ margin: '8px 0 0', color: 'var(--steel, #94a3b8)', lineHeight: 1.5, fontSize: '0.92rem' }}>
+                  O sistema permite visualizar a planta fabril com a demarcação das áreas e equipamentos, sinalizando claramente onde existem intervenções ativas de manutenção e prevenindo acidentes de trabalho com fontes de energia perigosa.
+                </p>
+              </div>
             </div>
 
             <div style={{ padding: 14, background: '#1c2836', borderRadius: 8, border: '1px solid #2d3f54' }}>
@@ -179,7 +196,7 @@ export default function Login() {
               <div style={{ marginBottom: 12 }}>
                 <strong style={{ display: 'block', color: '#fff', fontSize: '0.92rem' }}>Idealizado por:</strong>
                 <span style={{ color: '#cbd5e1', fontSize: '0.9rem' }}>Hadmilton de Melos Cordeiro</span>
-                <small style={{ display: 'block', color: '#94a3b8', marginTop: 2 }}>Coordenador de Manutenção Mecânica / Supervisor de Estágio</small>
+                <small style={{ display: 'block', color: '#94a3b8', marginTop: 2 }}>Coordenador de Manutenção Elétrica / Supervisor de Estágio</small>
               </div>
               <div>
                 <strong style={{ display: 'block', color: '#fff', fontSize: '0.92rem' }}>Desenvolvimento e implementação:</strong>

@@ -280,7 +280,7 @@ export default function ManualPage() {
           <div className="swagger-credits-box">
             <div>
               <strong>Idealizado por:</strong> Hadmilton de Melos Cordeiro{' '}
-              <em>(Coordenador de Manutenção Mecânica / Supervisor de Estágio)</em>
+              <em>(Coordenador de Manutenção Elétrica / Supervisor de Estágio)</em>
             </div>
             <div style={{ marginTop: 4 }}>
               <strong>Desenvolvimento e implementação:</strong> Rodrigo Lopes Chaves de Aguiar{' '}

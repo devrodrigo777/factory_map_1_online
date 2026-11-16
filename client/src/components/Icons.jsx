@@ -33,6 +33,9 @@ const paths = {
   refresh: 'M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15',
   alert: 'M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01',
   user: 'M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z',
+  info: 'M12 16v-4m0-4h.01M22 12A10 10 0 1 1 2 12a10 10 0 0 1 20 0z',
+  search: 'M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z',
+  qr: 'M4 4h4v4H4zm12 0h4v4h-4zm-12 12h4v4H4zm12 4h4v-4h-4zm0-8h1v2h-1zm3 0h1v2h-1zm-3 3h2v2h-2zm3 3h1v2h-1zm-3 2h1v1h-1zM4 9v2h2V9zm7-5v7h2V4zm-2 9h2v2H9zm2 3h2v2h-2zm-2 2h2v2H9z',
 };
 
 export default function Icon({ name, size = 20 }) {

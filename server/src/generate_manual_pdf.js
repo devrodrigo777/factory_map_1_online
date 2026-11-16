@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import PDFDocument from 'pdfkit';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const defaultOutputPath = path.resolve(here, '../../Manual_de_Uso_EasyLOTOTO_v2.pdf');
+const defaultOutputPath = path.resolve(here, '../../Manual_de_Uso_EasyLOTOTO_for_Knauf.pdf');
 let outputPath = defaultOutputPath;
 
 try {
@@ -16,7 +16,7 @@ try {
   }
 } catch (e) {
   if (e.code === 'EBUSY') {
-    outputPath = path.resolve(here, '../../Manual_de_Uso_EasyLOTOTO_v2_atualizado.pdf');
+    outputPath = path.resolve(here, '../../Manual_de_Uso_EasyLOTOTO_for_Knauf_atualizado.pdf');
     console.log(`Nota: Arquivo original aberto em outro aplicativo. Gerando em: ${outputPath}`);
   }
 }
@@ -58,10 +58,10 @@ const doc = new PDFDocument({
   bufferPages: true,
   autoFirstPage: true,
   info: {
-    Title: 'Manual de Uso do EasyLOTOTO v2',
-    Author: 'EasyLOTOTO v2',
+    Title: 'Manual de Uso do EasyLOTOTO for Knauf',
+    Author: 'EasyLOTOTO for Knauf',
     Subject: 'Manual Técnico de Operação e Uso do Sistema',
-    Keywords: 'EasyLOTOTO, LOTOTO, Manual, Bloqueio, Etiquetagem',
+    Keywords: 'EasyLOTOTO, Knauf, LOTOTO, Manual, Bloqueio, Etiquetagem',
     CreationDate: new Date(),
   },
 });
@@ -270,63 +270,45 @@ function buildCoverPage() {
   doc.rect(0, 0, PAGE_W, 200).fill(C.NAVY);
   doc.rect(0, 195, PAGE_W, 5).fill(C.ORANGE_SIGNAL);
 
-  doc.font('Helvetica-Bold').fontSize(32).fillColor(C.WHITE);
-  doc.text('EasyLOTOTO v2', M, 65);
+  doc.font('Helvetica-Bold').fontSize(30).fillColor(C.WHITE);
+  doc.text('EasyLOTOTO for Knauf', M, 65);
 
-  doc.font('Helvetica').fontSize(14).fillColor('#94A3B8');
-  doc.text('Manual de Uso do EasyLOTOTO v2 — Operação e Configuração', M, 108);
+  doc.font('Helvetica').fontSize(13.5).fillColor('#94A3B8');
+  doc.text('Manual de Uso do EasyLOTOTO for Knauf — Operação e Configuração', M, 108);
 
   doc.font('Helvetica').fontSize(9.5).fillColor('#E2E8F0');
   doc.text('Sistema simples para gestão visual de LOTOTO da fábrica.', M, 134);
 
-  doc.y = 225;
+  doc.y = 220;
 
   doc.font('Helvetica-Bold').fontSize(12).fillColor(C.TEXT_TITLE);
   doc.text('Apresentação do Sistema', M, doc.y);
   doc.y += 6;
 
   drawParagraph(
-    'O EasyLOTOTO v2 é um sistema simples desenvolvido para a gestão visual de bloqueios e etiquetagens de energia perigosa (LOTOTO - Lockout, Tagout, Tryout) na fábrica. Este manual descreve o funcionamento de seus módulos, telas, ferramentas e procedimentos de uso.'
+    'O EasyLOTOTO for Knauf é um sistema simples desenvolvido para a gestão visual de bloqueios e etiquetagens de energia perigosa (LOTOTO - Lockout, Tagout, Tryout) na fábrica. Este manual descreve o funcionamento de seus módulos, telas, ferramentas e procedimentos de uso.'
   );
 
   drawParagraph(
     'Projetado para operar em ambiente offline, o sistema roda localmente na infraestrutura da fábrica de forma autônoma. As plantas fabris, os registros de intervenção e os parâmetros de segurança são processados localmente com agilidade, sem necessidade de conexão externa com a internet.'
   );
 
-  checkSpace(130);
-  const metaY = doc.y + 8;
-  doc.roundedRect(M, metaY, CONTENT_W, 95, 6).fill(C.GRAY_BG).strokeColor(C.GRAY_BORDER).lineWidth(0.8).stroke();
+  doc.y += 4;
+  doc.font('Helvetica-Bold').fontSize(10).fillColor(C.BLUE_PRIMARY);
+  doc.text('FICHA TÉCNICA DO SISTEMA', M, doc.y);
+  doc.y += 4;
 
-  doc.font('Helvetica-Bold').fontSize(9).fillColor(C.BLUE_PRIMARY);
-  doc.text('FICHA TÉCNICA DO SISTEMA', M + 14, metaY + 10);
-
-  const colW = (CONTENT_W - 28) / 2;
-  const l1Y = metaY + 26;
-
-  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Nome do Sistema:', M + 14, l1Y);
-  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('EasyLOTOTO v2', M + 115, l1Y);
-
-  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Finalidade:', M + 14, l1Y + 16);
-  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('Gestão Visual de Bloqueios (LOTOTO)', M + 115, l1Y + 16);
-
-  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Banco de Dados:', M + 14, l1Y + 32);
-  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('SQLite WAL (server/data/factory.db)', M + 115, l1Y + 32);
-
-  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Conta de Contingência:', M + 14, l1Y + 48);
-  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('recovery (Acesso Seguro)', M + 115, l1Y + 48);
-
-  const rX = M + colW + 14;
-  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Tecnologia da Interface:', rX, l1Y);
-  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('React SPA + Canvas Interativo', rX + 110, l1Y);
-
-  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Sincronização:', rX, l1Y + 16);
-  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('Código Visual Dinâmico / QR Streaming', rX + 110, l1Y + 16);
-
-  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Padrão Normativo:', rX, l1Y + 32);
-  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('NR-10, NR-12, OSHA 1910.147 (LOTOTO)', rX + 110, l1Y + 32);
-
-  doc.font('Helvetica-Bold').fontSize(8.5).fillColor(C.TEXT_TITLE).text('Data desta Versão:', rX, l1Y + 48);
-  doc.font('Helvetica').fontSize(8.5).fillColor(C.TEXT_BODY).text('Novembro / 2026', rX + 110, l1Y + 48);
+  const techSpecs = [
+    ['Nome do Sistema', 'EasyLOTOTO for Knauf (v2)'],
+    ['Finalidade', 'Gestão Visual de Bloqueios e Etiquetagens (LOTOTO) da fábrica'],
+    ['Modo de Operação', 'Ambiente offline (100% autônomo na rede local)'],
+    ['Banco de Dados Local', 'SQLite WAL (server/data/factory.db)'],
+    ['Acesso de Contingência', 'recovery (Acesso Seguro de Administrador)'],
+    ['Sincronização Óptica', 'Código Visual Dinâmico / QR Streaming contínuo'],
+    ['Padrão Normativo', 'NR-10, NR-12 e OSHA 29 CFR 1910.147 (LOTOTO)'],
+    ['Data desta Versão', 'Novembro / 2026'],
+  ];
+  drawTable(['Especificação Técnica', 'Configuração do Sistema'], techSpecs, [160, CONTENT_W - 160]);
 
   // Rodapé da primeira página com os créditos solicitados
   const oldBottom = doc.page.margins.bottom;
@@ -339,11 +321,11 @@ function buildCoverPage() {
 
   doc.font('Helvetica-Bold').fontSize(8).fillColor(C.TEXT_TITLE).text('Idealizado por:', M, credY + 18, { lineBreak: false });
   doc.font('Helvetica').fontSize(8).fillColor(C.TEXT_BODY).text('Hadmilton de Melos Cordeiro', M + 65, credY + 18, { lineBreak: false });
-  doc.font('Helvetica-Oblique').fontSize(7.5).fillColor(C.TEXT_MUTED).text(' — Coordenador de Manutenção Mecânica / Supervisor de Estágio', M + 180, credY + 18);
+  doc.font('Helvetica-Oblique').fontSize(7.5).fillColor(C.TEXT_MUTED).text(' — Coordenador de Manutenção Elétrica / Supervisor de Estágio', M + 185, credY + 18);
 
   doc.font('Helvetica-Bold').fontSize(8).fillColor(C.TEXT_TITLE).text('Desenvolvimento e implementação:', M, credY + 32, { lineBreak: false });
-  doc.font('Helvetica').fontSize(8).fillColor(C.TEXT_BODY).text('Rodrigo Lopes', M + 155, credY + 32, { lineBreak: false });
-  doc.font('Helvetica-Oblique').fontSize(7.5).fillColor(C.TEXT_MUTED).text(' — Estagiário de Engenharia de Software', M + 215, credY + 32);
+  doc.font('Helvetica').fontSize(8).fillColor(C.TEXT_BODY).text('Rodrigo Lopes Chaves de Aguiar', M + 155, credY + 32, { lineBreak: false });
+  doc.font('Helvetica-Oblique').fontSize(7.5).fillColor(C.TEXT_MUTED).text(' — Estagiário de Engenharia de Software', M + 285, credY + 32);
   doc.page.margins.bottom = oldBottom;
 }
 
@@ -798,7 +780,7 @@ function buildChapters() {
   doc.y += 10;
 
   doc.font('Helvetica-Bold').fontSize(9).fillColor(C.NAVY);
-  doc.text('EasyLOTOTO v2 — Sistema simples para gestão visual de LOTOTO da fábrica.', M, doc.y, { align: 'center', width: CONTENT_W });
+  doc.text('EasyLOTOTO for Knauf — Sistema simples para gestão visual de LOTOTO da fábrica.', M, doc.y, { align: 'center', width: CONTENT_W });
 }
 
 // =========================================================================
@@ -839,7 +821,7 @@ function fillTableOfContents() {
   drawCallout(
     'tip',
     'Padronização da Nomenclatura LOTOTO',
-    'O EasyLOTOTO v2 adota a sigla LOTOTO (Lockout, Tagout, Tryout), reforçando o ciclo de travamento mecânico/elétrico, etiquetagem e teste de energia zero antes de qualquer atividade de manutenção.'
+    'O EasyLOTOTO for Knauf adota a sigla LOTOTO (Lockout, Tagout, Tryout), reforçando o ciclo de travamento mecânico/elétrico, etiquetagem e teste de energia zero antes de qualquer atividade de manutenção.'
   );
 }
 
@@ -863,13 +845,13 @@ function applyHeaderAndFooter() {
 
     // Cabeçalho Superior
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor(C.BLUE_PRIMARY);
-    doc.text('EasyLOTOTO v2', M, 24, { lineBreak: false });
+    doc.text('EasyLOTOTO for Knauf', M, 24, { lineBreak: false });
 
     doc.font('Helvetica').fontSize(7.5).fillColor(C.TEXT_MUTED);
-    doc.text('•  Manual de Uso', M + 75, 24, { lineBreak: false });
+    doc.text('•  Manual de Uso', M + 95, 24, { lineBreak: false });
 
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor(C.NAVY);
-    doc.text('EasyLOTOTO v2', PAGE_W - M - 100, 24, { width: 100, align: 'right', lineBreak: false });
+    doc.text('EasyLOTOTO for Knauf', PAGE_W - M - 120, 24, { width: 120, align: 'right', lineBreak: false });
 
     doc.moveTo(M, 36).lineTo(PAGE_W - M, 36).lineWidth(0.5).strokeColor(C.GRAY_LINE).stroke();
 
@@ -877,7 +859,7 @@ function applyHeaderAndFooter() {
     doc.moveTo(M, PAGE_H - 34).lineTo(PAGE_W - M, PAGE_H - 34).lineWidth(0.5).strokeColor(C.GRAY_LINE).stroke();
 
     doc.font('Helvetica').fontSize(7.5).fillColor(C.TEXT_MUTED);
-    doc.text('EasyLOTOTO v2 • Gestão Visual de Bloqueios e Etiquetagens LOTOTO', M, PAGE_H - 26, { lineBreak: false });
+    doc.text('EasyLOTOTO for Knauf • Gestão Visual de Bloqueios e Etiquetagens LOTOTO', M, PAGE_H - 26, { lineBreak: false });
 
     doc.font('Helvetica-Bold').fontSize(7.5).fillColor(C.NAVY);
     doc.text(`Página ${i + 1} de ${totalPages}`, PAGE_W - M - 90, PAGE_H - 26, { width: 90, align: 'right', lineBreak: false });
@@ -890,11 +872,9 @@ function applyHeaderAndFooter() {
 // =========================================================================
 // EXECUÇÃO DO FLUXO COMPLETO
 // =========================================================================
-console.log('Iniciando compilação do Manual de Uso do EasyLOTOTO v2 em PDF...');
+console.log('Iniciando compilação do Manual de Uso do EasyLOTOTO for Knauf em PDF...');
 buildCoverPage();
-console.log('Páginas após a capa:', doc.bufferedPageRange().count);
 reserveTocPage();
-console.log('Páginas após reservar sumário:', doc.bufferedPageRange().count);
 buildChapters();
 console.log('Capítulos mapeados no sumário:', chapterRegistry.map(c => `Cap ${c.number}: pág ${c.pageNum}`));
 fillTableOfContents();
@@ -907,13 +887,19 @@ writeStream.on('finish', () => {
   console.log('Manual compilado com sucesso!');
   console.log(`Arquivo: ${outputPath}`);
   console.log(`Tamanho: ${(stats.size / 1024).toFixed(1)} KB`);
-  console.log(`Páginas totais: ${doc.bufferedPageRange().count}`);
 
-  const deployPdf = path.resolve(here, '../../factory-map-deploy/Manual_de_Uso_EasyLOTOTO_v2.pdf');
-  try {
-    fs.copyFileSync(outputPath, deployPdf);
-    console.log(`Cópia sincronizada para: ${deployPdf}`);
-  } catch (e) {
-    console.error('Erro ao copiar para deploy:', e.message);
-  }
+  // Cópias automáticas para as pastas públicas e deploy
+  const targets = [
+    path.resolve(here, '../../client/public/Manual_de_Uso_EasyLOTOTO_for_Knauf.pdf'),
+    path.resolve(here, '../../factory-map-deploy/Manual_de_Uso_EasyLOTOTO_for_Knauf.pdf'),
+    path.resolve(here, '../../factory-map-deploy/client/public/Manual_de_Uso_EasyLOTOTO_for_Knauf.pdf'),
+  ];
+  targets.forEach((tgt) => {
+    try {
+      fs.copyFileSync(outputPath, tgt);
+      console.log(`Cópia sincronizada para: ${tgt}`);
+    } catch (e) {
+      console.error(`Erro ao copiar para ${tgt}:`, e.message);
+    }
+  });
 });
