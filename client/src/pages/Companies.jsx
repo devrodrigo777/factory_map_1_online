@@ -17,6 +17,9 @@ export default function Companies() {
   const [companies, setCompanies] = useState(null);
   const [editing, setEditing] = useState(null); // {} para novo | objeto para editar
   const [busy, setBusy] = useState(false);
+  const [resetModal, setResetModal] = useState(false);
+  const [resetKeyword, setResetKeyword] = useState('');
+  const [resetBusy, setResetBusy] = useState(false);
 
   const fail = useCallback((e) => toast(e.message, 'error'), [toast]);
 
@@ -25,6 +28,21 @@ export default function Companies() {
   }, [fail]);
 
   useEffect(load, [load]);
+
+  const handleResetAll = async () => {
+    if (resetKeyword.trim() !== 'DELETE.ALL') return;
+    setResetBusy(true);
+    try {
+      await api.resetSystemAll(resetKeyword.trim());
+      toast('Sistema completamente formatado.');
+      setResetModal(false);
+      setTimeout(() => { window.location.href = '/'; }, 1000);
+    } catch (err) {
+      fail(err);
+    } finally {
+      setResetBusy(false);
+    }
+  };
 
   const saveCompany = async (e) => {
     e.preventDefault();
@@ -178,6 +196,86 @@ export default function Companies() {
             </table>
           </div>
         </section>
+
+        <section className="danger-zone-card" style={{ marginTop: 24 }}>
+          <div className="danger-zone-header">
+            <Icon name="alert" size={24} />
+            <h2>Área de Risco: Formatar Sistema</h2>
+          </div>
+          <p className="danger-zone-desc">
+            Exclui permanentemente todo o banco de dados, todas as empresas, todos os usuários e arquivos enviados. O sistema retornará ao estado de primeiro acesso (instalação zerada). A recuperação só é possível via backups externos.
+          </p>
+          <div className="danger-item-row">
+            <div className="danger-item-info">
+              <strong style={{ color: '#ef4444' }}>👑 Formatar sistema completamente</strong>
+              <p>Zera completamente a instalação do servidor VPS. Exige confirmação por palavra-chave ("DELETE.ALL").</p>
+            </div>
+            <button
+              type="button"
+              className="btn danger-solid"
+              onClick={() => {
+                setResetKeyword('');
+                setResetModal(true);
+              }}
+            >
+              Formatar sistema…
+            </button>
+          </div>
+        </section>
+
+        {resetModal && (
+          <Modal
+            title="Formatar Sistema Completamente"
+            onClose={() => !resetBusy && setResetModal(false)}
+            footer={
+              <>
+                <button type="button" className="btn" onClick={() => setResetModal(false)} disabled={resetBusy}>
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn danger-solid"
+                  onClick={handleResetAll}
+                  disabled={resetBusy || resetKeyword.trim() !== 'DELETE.ALL'}
+                >
+                  {resetBusy ? 'Formatando…' : 'Confirmar e Formatar Tudo'}
+                </button>
+              </>
+            }
+          >
+            <div className="danger-modal-body">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#f87171' }}>
+                <Icon name="alert" size={24} />
+                <strong>ATENÇÃO EXTREMA: Ação irreversível!</strong>
+              </div>
+              <p style={{ margin: 0, fontSize: 14, color: '#cbd5e1' }}>
+                Todas as empresas cadastradas, usuários, senhas, sessões ativas, logs de auditoria, dados de bloqueio e imagens enviadas serão completamente apagados do servidor. O sistema voltará ao assistente de primeiro acesso.
+              </p>
+              <div style={{ background: '#111a26', border: '1px solid #243548', borderRadius: 8, padding: 12 }}>
+                <p style={{ margin: '0 0 8px', fontSize: 13, color: '#94a3b8' }}>
+                  Para confirmar a formatação total, digite exatamente a palavra-chave abaixo:
+                </p>
+                <div style={{ textAlign: 'center', margin: '4px 0 10px' }}>
+                  <span className="danger-keyword-badge">DELETE.ALL</span>
+                </div>
+                <input
+                  type="text"
+                  className="field-input"
+                  style={{ width: '100%', boxSizing: 'border-box', textAlign: 'center', fontWeight: 'bold', letterSpacing: '0.05em' }}
+                  placeholder="Digite DELETE.ALL"
+                  value={resetKeyword}
+                  onChange={(e) => setResetKeyword(e.target.value)}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && resetKeyword.trim() === 'DELETE.ALL' && !resetBusy) {
+                      handleResetAll();
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          </Modal>
+        )}
 
         {editing && (
           <Modal

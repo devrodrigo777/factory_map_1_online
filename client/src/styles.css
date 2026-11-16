@@ -973,3 +973,80 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
 .captcha-img {
   height: 48px; border-radius: 8px; border: 1px solid #2b3e54;
 }
+
+/* =====================================================================
+   Área de Risco (Danger Zone) - Guia Conta
+   ===================================================================== */
+.danger-zone-card {
+  border: 1px solid rgba(239, 68, 68, 0.45);
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.08) 0%, rgba(20, 28, 40, 0.6) 100%);
+  border-radius: 12px;
+  padding: 20px;
+  margin-top: 8px;
+}
+.danger-zone-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ef4444;
+  margin-bottom: 8px;
+}
+.danger-zone-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #ef4444;
+}
+.danger-zone-desc {
+  font-size: 0.92rem;
+  color: #cbd5e1;
+  line-height: 1.5;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+}
+.danger-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+.danger-item-row:last-child {
+  border-bottom: none;
+  padding-bottom: 4px;
+}
+.danger-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.danger-item-info strong {
+  font-size: 1rem;
+  color: #f87171;
+}
+.danger-item-info p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+.danger-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.danger-keyword-badge {
+  display: inline-block;
+  font-family: monospace;
+  font-size: 14px;
+  font-weight: 700;
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+  user-select: all;
+}

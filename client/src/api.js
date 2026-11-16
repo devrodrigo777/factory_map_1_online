@@ -81,6 +81,12 @@ export const api = {
     return request('/api/backup/restore', { method: 'POST', body: fd });
   },
 
+  // área de risco / conta
+  clearData: (confirmation) => request('/api/account/clear-data', json('POST', { confirmation })),
+  clearEnvironment: (confirmation) => request('/api/account/clear-environment', json('POST', { confirmation })),
+  clearBackups: (confirmation) => request('/api/account/clear-backups', json('POST', { confirmation })),
+  resetSystemAll: (confirmation) => request('/api/system/reset-all', json('POST', { confirmation })),
+
   // sincronização
   exportSyncPackage: (type) => request('/api/sync/export', json('POST', { type })),
   applySyncPackage: ({ code, password, mode }) => request('/api/sync/apply', json('POST', { code, password, mode })),

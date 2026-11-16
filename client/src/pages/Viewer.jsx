@@ -261,6 +261,16 @@ export default function Viewer() {
           ))}
         </nav>
         <div className="spacer" />
+        {user?.role === 'globaladmin' && (
+          <div className="hide-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Link to="/companies" className="badge off" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', fontSize: 12, background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: 20, textDecoration: 'none' }}>
+              👑 Global Admin
+            </Link>
+            <Link to="/companies" className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', fontSize: 12, background: 'rgba(245, 158, 11, 0.16)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: 20, textDecoration: 'none', fontWeight: 600 }} title="Ambiente ativo - Clique para alternar de empresa">
+              🏢 Ambiente: {user.active_company_name || user.company_name || 'Geral'}
+            </Link>
+          </div>
+        )}
         {locks && (
           <Link className={`chip ${locks.active_total ? 'alert' : ''}`} to={user ? '/dashboard' : '/login'} title={user ? 'Abrir dashboard' : 'Entrar'}>
             <Icon name="lock" size={16} />

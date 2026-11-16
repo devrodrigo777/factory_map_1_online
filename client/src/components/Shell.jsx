@@ -55,14 +55,19 @@ export default function Shell({ title, actions, children }) {
         <Link className="btn icon" to="/" aria-label="Voltar ao mapa"><Icon name="back" /></Link>
         <h1>{title}</h1>
         <div className="spacer" />
-        {user?.company_name ? (
+        {user?.role === 'globaladmin' ? (
+          <div className="hide-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+            <Link to="/companies" className="badge off" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', fontSize: 13, background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: 20, textDecoration: 'none' }}>
+              👑 Global Admin
+            </Link>
+            <Link to="/companies" className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', fontSize: 13, background: 'rgba(245, 158, 11, 0.16)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: 20, textDecoration: 'none', fontWeight: 600 }} title="Ambiente ativo - Clique para alternar de empresa">
+              🏢 Ambiente: {user.active_company_name || user.company_name || 'Geral'}
+            </Link>
+          </div>
+        ) : user?.company_name ? (
           <span className="badge off hide-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', fontSize: 13, background: 'rgba(255,255,255,0.06)', borderRadius: 20 }}>
             🏢 {user.company_name}
           </span>
-        ) : user?.role === 'globaladmin' ? (
-          <Link to="/companies" className="badge off hide-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '4px 10px', fontSize: 13, background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', borderRadius: 20, textDecoration: 'none' }}>
-            👑 Global Admin
-          </Link>
         ) : null}
         {actions && <div className="topbar-actions">{actions}</div>}
         <Link className="btn hide-sm" to="/">Ver mapa</Link>

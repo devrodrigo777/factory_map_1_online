@@ -29,16 +29,21 @@ function parseManifestFromCode(code) {
 export default function Backup() {
   const toast = useToast();
   const confirm = useConfirm();
-  const { expire } = useAuth();
+  const { expire, user } = useAuth();
   const fileRef = useRef(null);
 
-  const [tab, setTab] = useState('backup'); // 'backup' | 'sync'
+  const [tab, setTab] = useState('backup'); // 'backup' | 'sync' | 'account'
   const [list, setList] = useState([]);
   const [type, setType] = useState('full');
   const [withUsers, setWithUsers] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState(null); // { file?, name?, manifest, images }
   const [mode, setMode] = useState('replace');
+
+  // Estado da Área de Risco (Guia Conta)
+  const [dangerModal, setDangerModal] = useState(null);
+  const [typedKeyword, setTypedKeyword] = useState('');
+  const [dangerBusy, setDangerBusy] = useState(false);
 
   // Estado da Sincronização
   const [syncScope, setSyncScope] = useState(() => localStorage.getItem('sync_scope_pref') || 'full');
@@ -196,6 +201,42 @@ export default function Backup() {
     }
   };
 
+  const handleOpenDanger = (action, title, desc, keyword) => {
+    setTypedKeyword('');
+    setDangerModal({ action, title, desc, keyword });
+  };
+
+  const handleExecuteDanger = async () => {
+    if (!dangerModal || typedKeyword.trim() !== dangerModal.keyword) return;
+    setDangerBusy(true);
+    try {
+      if (dangerModal.action === 'clear-data') {
+        const res = await api.clearData(typedKeyword.trim());
+        toast(res.message || 'Dados excluídos com sucesso.');
+        setDangerModal(null);
+      } else if (dangerModal.action === 'clear-environment') {
+        const res = await api.clearEnvironment(typedKeyword.trim());
+        toast(res.message || 'Dados e configurações excluídos com sucesso.');
+        setDangerModal(null);
+        setTimeout(() => { window.location.href = '/admin'; }, 1000);
+      } else if (dangerModal.action === 'clear-backups') {
+        const res = await api.clearBackups(typedKeyword.trim());
+        toast(res.message || 'Backups excluídos com sucesso.');
+        setDangerModal(null);
+        load();
+      } else if (dangerModal.action === 'reset-all') {
+        const res = await api.resetSystemAll(typedKeyword.trim());
+        toast(res.message || 'Sistema formatado completamente.');
+        setDangerModal(null);
+        setTimeout(() => { window.location.href = '/'; }, 1000);
+      }
+    } catch (e) {
+      fail(e);
+    } finally {
+      setDangerBusy(false);
+    }
+  };
+
   return (
     <Shell title="Backup e restauração">
       <div className="page narrow">
@@ -216,9 +257,111 @@ export default function Backup() {
           >
             <Icon name="swap" size={15} /> Sincronização (Online ↔ Offline)
           </button>
+          <button
+            role="tab"
+            aria-selected={tab === 'account'}
+            className={tab === 'account' ? 'on' : ''}
+            onClick={() => setTab('account')}
+          >
+            <Icon name="user" size={15} /> Conta
+          </button>
         </div>
 
-        {tab === 'sync' ? (
+        {tab === 'account' ? (
+          /* =========================================================================
+             Aba Conta: Área de Risco (Exclusão de Dados, Configurações e Backups)
+             ========================================================================= */
+          <div className="danger-zone-section">
+            <section className="danger-zone-card">
+              <div className="danger-zone-header">
+                <Icon name="alert" size={24} />
+                <h2>Área de Risco</h2>
+              </div>
+              <p className="danger-zone-desc">
+                As ações abaixo removem permanentemente dados e configurações do sistema. A recuperação só poderá ser realizada caso você possua um arquivo de backup (.zip) salvo previamente. Proceda com cautela.
+              </p>
+
+              <div className="danger-item-row">
+                <div className="danger-item-info">
+                  <strong>Excluir dados</strong>
+                  <p>Remove todos os registros LOTO de bloqueio, histórico de alterações e histórico de importações do ambiente atual. Suas plantas, áreas, campos e KPIs permanecem intactos.</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn danger"
+                  onClick={() => handleOpenDanger(
+                    'clear-data',
+                    'Excluir Todos os Dados',
+                    'Esta ação apagará permanentemente todos os registros de bloqueio, históricos e importações do ambiente.',
+                    'EXCLUIR DADOS'
+                  )}
+                >
+                  Excluir dados…
+                </button>
+              </div>
+
+              <div className="danger-item-row">
+                <div className="danger-item-info">
+                  <strong>Excluir dados + configurações</strong>
+                  <p>Remove todos os registros, plantas, imagens enviadas, áreas demarcadas, campos personalizados e KPIs do ambiente atual. Os usuários da empresa são mantidos para que o acesso não seja perdido.</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn danger"
+                  onClick={() => handleOpenDanger(
+                    'clear-environment',
+                    'Excluir Dados e Configurações',
+                    'Esta ação apagará todas as plantas, áreas, imagens, campos, KPIs e registros do ambiente. Os usuários e senhas serão mantidos.',
+                    'EXCLUIR TUDO'
+                  )}
+                >
+                  Excluir dados + configurações…
+                </button>
+              </div>
+
+              <div className="danger-item-row">
+                <div className="danger-item-info">
+                  <strong>Excluir backups</strong>
+                  <p>Remove permanentemente todos os arquivos de backup (.zip) locais salvos no servidor para esta empresa.</p>
+                </div>
+                <button
+                  type="button"
+                  className="btn danger"
+                  onClick={() => handleOpenDanger(
+                    'clear-backups',
+                    'Excluir Todos os Backups Locais',
+                    'Todos os arquivos .zip de backup salvos no servidor para este ambiente serão apagados permanentemente.',
+                    'EXCLUIR BACKUPS'
+                  )}
+                >
+                  Excluir backups…
+                </button>
+              </div>
+
+              {/* Se for globaladmin, exibe a opção de formatação geral do VPS */}
+              {user?.role === 'globaladmin' && (
+                <div className="danger-item-row" style={{ borderTop: '1px solid rgba(239, 68, 68, 0.4)', marginTop: 8, paddingTop: 16 }}>
+                  <div className="danger-item-info">
+                    <strong style={{ color: '#ef4444' }}>👑 Formatar sistema completamente (Global Admin)</strong>
+                    <p>Exclui todas as empresas cadastradas, todos os usuários, todo o banco de dados e arquivos de imagens. O sistema retornará ao estado de primeiro acesso (instalação zerada).</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn danger-solid"
+                    onClick={() => handleOpenDanger(
+                      'reset-all',
+                      'Formatar Sistema Completamente',
+                      'ATENÇÃO EXTREMA: Todas as empresas, usuários, sessões, auditorias, dados e imagens de todo o servidor serão excluídos. O sistema voltará à tela de primeiro acesso.',
+                      'DELETE.ALL'
+                    )}
+                  >
+                    Formatar sistema…
+                  </button>
+                </div>
+              )}
+            </section>
+          </div>
+        ) : tab === 'sync' ? (
           /* =========================================================================
              Aba de Sincronização Online ↔ Offline
              ========================================================================= */
@@ -647,6 +790,61 @@ export default function Backup() {
                 <button type="button" className="btn ghost" onClick={() => setSyncExportModalOpen(false)}>
                   Fechar
                 </button>
+              </div>
+            </div>
+          </Modal>
+        )}
+
+        {/* Modal de Confirmação com Palavra-Chave da Área de Risco */}
+        {dangerModal && (
+          <Modal
+            title={dangerModal.title}
+            onClose={() => !dangerBusy && setDangerModal(null)}
+            footer={
+              <>
+                <button type="button" className="btn" onClick={() => setDangerModal(null)} disabled={dangerBusy}>
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn danger-solid"
+                  onClick={handleExecuteDanger}
+                  disabled={dangerBusy || typedKeyword.trim() !== dangerModal.keyword}
+                >
+                  {dangerBusy ? 'Executando…' : 'Confirmar e Excluir'}
+                </button>
+              </>
+            }
+          >
+            <div className="danger-modal-body">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#f87171' }}>
+                <Icon name="alert" size={24} />
+                <strong>Atenção: esta ação é irreversível!</strong>
+              </div>
+              <p style={{ margin: 0, fontSize: 14, color: '#cbd5e1' }}>
+                {dangerModal.desc}
+              </p>
+              <div style={{ background: '#111a26', border: '1px solid #243548', borderRadius: 8, padding: 12 }}>
+                <p style={{ margin: '0 0 8px', fontSize: 13, color: '#94a3b8' }}>
+                  Para confirmar, digite exatamente a palavra-chave abaixo:
+                </p>
+                <div style={{ textAlign: 'center', margin: '4px 0 10px' }}>
+                  <span className="danger-keyword-badge">{dangerModal.keyword}</span>
+                </div>
+                <input
+                  type="text"
+                  className="field-input"
+                  style={{ width: '100%', boxSizing: 'border-box', textAlign: 'center', fontWeight: 'bold', letterSpacing: '0.05em' }}
+                  placeholder={`Digite ${dangerModal.keyword}`}
+                  value={typedKeyword}
+                  onChange={(e) => setTypedKeyword(e.target.value)}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && typedKeyword.trim() === dangerModal.keyword && !dangerBusy) {
+                      handleExecuteDanger();
+                    }
+                  }}
+                />
               </div>
             </div>
           </Modal>

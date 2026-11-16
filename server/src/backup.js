@@ -276,3 +276,82 @@ router.get('/export/records.xlsx', wrap(async (_req, res) => {
   await ws.commit();
   await wb.commit();
 }));
+
+// ---------- Área de Risco: Exclusão de dados / ambiente / backups ----------
+router.post('/account/clear-data', wrap(async (req, res) => {
+  const confirmation = String(req.body?.confirmation ?? '').trim();
+  if (confirmation !== 'EXCLUIR DADOS') {
+    throw httpError(400, 'Confirmação incorreta. Digite exatamente "EXCLUIR DADOS".');
+  }
+  db.transaction(() => {
+    db.prepare('DELETE FROM records').run();
+    db.prepare('DELETE FROM record_history').run();
+    db.prepare('DELETE FROM imports').run();
+  })();
+  invalidate();
+  audit(req.user?.username, 'Excluiu todos os registros e histórico de importações (Área de Risco)');
+  res.json({ ok: true, message: 'Todos os registros e histórico foram excluídos com sucesso.' });
+}));
+
+router.post('/account/clear-environment', wrap(async (req, res) => {
+  const confirmation = String(req.body?.confirmation ?? '').trim();
+  if (confirmation !== 'EXCLUIR TUDO') {
+    throw httpError(400, 'Confirmação incorreta. Digite exatamente "EXCLUIR TUDO".');
+  }
+  // Coleta imagens das plantas do tenant atual antes de limpar
+  const mapImages = db.prepare('SELECT image FROM maps').all().map((m) => path.basename(m.image));
+
+  db.transaction(() => {
+    db.prepare('DELETE FROM records').run();
+    db.prepare('DELETE FROM record_history').run();
+    db.prepare('DELETE FROM imports').run();
+    db.prepare('DELETE FROM areas').run();
+    db.prepare('DELETE FROM maps').run();
+    db.prepare('DELETE FROM kpis').run();
+    db.prepare('DELETE FROM settings').run();
+    db.prepare('DELETE FROM import_profiles').run();
+    db.prepare('DELETE FROM fields').run();
+    db.prepare(`
+      INSERT INTO fields (key, label, type, role, sort_order) VALUES
+        ('equipamento',      'Equipamento',         'text',   'equipment',   1),
+        ('setor',            'Setor',               'text',   'sector',      2),
+        ('bloqueado_por',    'Quem bloqueou',       'text',   'locked_by',   3),
+        ('data_bloqueio',    'Data de bloqueio',    'date',   'locked_at',   4),
+        ('data_desbloqueio', 'Data de desbloqueio', 'date',   'unlocked_at', 5),
+        ('motivo',           'Motivo',              'text',   NULL,          6),
+        ('qtd_cadeados',     'Qtd. de cadeados',    'number', NULL,          7);
+    `).run();
+  })();
+
+  // Remove imagens de plantas associadas
+  for (const f of mapImages) {
+    if (f && /^[\w.-]+$/.test(f)) {
+      try { fs.unlinkSync(path.join(UPLOAD_DIR, f)); } catch {}
+    }
+  }
+
+  invalidate();
+  audit(req.user?.username, 'Excluiu dados e configurações do ambiente (Área de Risco)');
+  res.json({ ok: true, message: 'Dados e configurações foram limpos com sucesso. Usuários preservados.' });
+}));
+
+router.post('/account/clear-backups', wrap(async (req, res) => {
+  const confirmation = String(req.body?.confirmation ?? '').trim();
+  if (confirmation !== 'EXCLUIR BACKUPS') {
+    throw httpError(400, 'Confirmação incorreta. Digite exatamente "EXCLUIR BACKUPS".');
+  }
+  const backupDir = getBackupDir();
+  let count = 0;
+  if (fs.existsSync(backupDir)) {
+    for (const f of fs.readdirSync(backupDir)) {
+      if (NAME_RE.test(f)) {
+        try {
+          fs.unlinkSync(path.join(backupDir, f));
+          count++;
+        } catch {}
+      }
+    }
+  }
+  audit(req.user?.username, `Excluiu ${count} arquivo(s) de backup local (Área de Risco)`);
+  res.json({ ok: true, count, message: `${count} backup(s) excluído(s) com sucesso.` });
+}));

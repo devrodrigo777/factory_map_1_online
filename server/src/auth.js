@@ -1,8 +1,11 @@
 // Login, sessões, perfis de acesso, usuários e registro de atividades multi-tenant.
 import { Router } from 'express';
 import crypto from 'node:crypto';
-import { masterDb, db, getSetting, setSetting, createTenantCompany, closeTenantDb } from './db.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { masterDb, db, getSetting, setSetting, createTenantCompany, closeTenantDb, DATA_DIR, UPLOAD_DIR, TENANTS_DIR } from './db.js';
 import { generateCaptcha, verifyCaptcha } from './captcha.js';
+import { invalidate } from './store.js';
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
 
@@ -38,10 +41,12 @@ export function userFromRequest(req) {
   const row = masterDb.prepare(`
     SELECT u.id, u.username, u.name, u.role, u.company_id, u.active,
            c.name AS company_name, c.slug AS company_slug, c.active AS company_active,
-           s.active_company_id, s.expires_at
+           s.active_company_id, s.expires_at,
+           ac.name AS active_company_name, ac.slug AS active_company_slug
     FROM sessions s
     JOIN users u ON u.id = s.user_id
     LEFT JOIN companies c ON c.id = u.company_id
+    LEFT JOIN companies ac ON ac.id = s.active_company_id
     WHERE s.token_hash = ? AND u.active = 1
   `).get(sha(token));
   if (!row) return null;
@@ -104,6 +109,10 @@ const LABELS = [
   [/^PUT \/config/, 'Alterou as configurações do sistema'],
   [/^POST \/backup\/create/, 'Criou backup'],
   [/^DELETE \/backup/, 'Excluiu backup'],
+  [/^POST \/account\/clear-data/, 'Excluiu registros e histórico (Área de Risco)'],
+  [/^POST \/account\/clear-environment/, 'Excluiu dados e configurações do ambiente (Área de Risco)'],
+  [/^POST \/account\/clear-backups/, 'Excluiu todos os backups locais (Área de Risco)'],
+  [/^POST \/system\/reset-all/, 'Formatou o sistema completamente (Reset Geral)'],
 ];
 const SKIP_AUDIT = /^(POST \/config\/test-folder|POST \/jobs|POST \/backup\/restore|POST \/import\/preview|POST \/expr\/test|POST \/backup\/inspect|PUT \/fields\/order)/;
 
@@ -125,8 +134,9 @@ function required(req) {
   const p = req.path;
   const read = req.method === 'GET' || req.method === 'HEAD';
   if (p === '/health' || p.startsWith('/auth/')) return 'public';
+  if (p === '/system/reset-all') return 'globaladmin';
   if (p === '/companies' || p.startsWith('/companies/')) return 'globaladmin';
-  if (/^\/(users|backup|expr|audit|config|jobs)(\/|$)/.test(p)) return 'admin';
+  if (/^\/(users|backup|account|expr|audit|config|jobs)(\/|$)/.test(p)) return 'admin';
   if (p.startsWith('/export')) return 'operator';
   if (/^\/(reports|history)(\/|$)/.test(p)) return 'viewer';
   if (/^\/(records|import|imports|import-profiles)(\/|$)/.test(p)) return read ? 'viewer' : 'operator';
@@ -209,6 +219,7 @@ const userOut = (u) => ({
   company_name: u.company_name ?? null,
   company_slug: u.company_slug ?? null,
   active_company_id: u.active_company_id ?? u.company_id ?? null,
+  active_company_name: u.active_company_name ?? u.company_name ?? null,
 });
 
 router.get('/auth/config', (req, res) => {
@@ -283,15 +294,17 @@ router.post('/auth/login', (req, res) => {
   masterDb.prepare("UPDATE users SET last_login_at = datetime('now') WHERE id = ?").run(u.id);
 
   let activeCompanyId = u.company_id;
+  let activeCompanyName = u.company_name;
   if (u.role === 'globaladmin' && !activeCompanyId) {
-    const firstComp = masterDb.prepare('SELECT id FROM companies WHERE active = 1 ORDER BY id ASC LIMIT 1').get();
+    const firstComp = masterDb.prepare('SELECT id, name FROM companies WHERE active = 1 ORDER BY id ASC LIMIT 1').get();
     activeCompanyId = firstComp?.id || null;
+    activeCompanyName = firstComp?.name || null;
   }
 
   startSession(req, res, u.id, activeCompanyId);
   audit(u.username, 'Entrou no sistema');
   loginHooks.forEach((fn) => { try { fn(u); } catch (e) { console.error('Erro em hook de login:', e); } });
-  res.json({ user: userOut({ ...u, active_company_id: activeCompanyId }) });
+  res.json({ user: userOut({ ...u, active_company_id: activeCompanyId, active_company_name: activeCompanyName }) });
 });
 
 router.post('/auth/logout', (req, res) => {
@@ -502,4 +515,69 @@ router.get('/audit', (req, res) => {
   } catch {
     res.json([]);
   }
+});
+
+// ---------- Formatação total do sistema (Apenas Global Admin) ----------
+router.post('/system/reset-all', (req, res) => {
+  if (req.user?.role !== 'globaladmin') {
+    throw httpError(403, 'Apenas o Administrador Global pode formatar o sistema.');
+  }
+  const confirmation = String(req.body?.confirmation ?? '').trim();
+  if (confirmation !== 'DELETE.ALL' && confirmation !== 'FORMATAR.TUDO') {
+    throw httpError(400, 'Confirmação incorreta. Digite exatamente "DELETE.ALL".');
+  }
+
+  // 1. Fecha conexões de todos os tenants
+  const comps = masterDb.prepare('SELECT id FROM companies').all();
+  for (const c of comps) {
+    closeTenantDb(c.id);
+  }
+
+  // 2. Remove pasta de tenants (todos os bancos isolados de empresas)
+  try {
+    if (fs.existsSync(TENANTS_DIR)) {
+      fs.rmSync(TENANTS_DIR, { recursive: true, force: true });
+      fs.mkdirSync(TENANTS_DIR, { recursive: true });
+    }
+  } catch (e) {
+    console.error('Erro ao limpar pasta de tenants:', e);
+  }
+
+  // 3. Remove todos os arquivos enviados (uploads)
+  try {
+    if (fs.existsSync(UPLOAD_DIR)) {
+      for (const f of fs.readdirSync(UPLOAD_DIR)) {
+        try { fs.unlinkSync(path.join(UPLOAD_DIR, f)); } catch {}
+      }
+    }
+  } catch (e) {
+    console.error('Erro ao limpar pasta de uploads:', e);
+  }
+
+  // 4. Remove backups raiz se houver
+  const rootBackupDir = path.join(DATA_DIR, 'backups');
+  try {
+    if (fs.existsSync(rootBackupDir)) {
+      fs.rmSync(rootBackupDir, { recursive: true, force: true });
+      fs.mkdirSync(rootBackupDir, { recursive: true });
+    }
+  } catch {}
+
+  // 5. Limpa todas as tabelas mestras
+  masterDb.transaction(() => {
+    masterDb.prepare('DELETE FROM sessions').run();
+    masterDb.prepare('DELETE FROM users').run();
+    masterDb.prepare('DELETE FROM companies').run();
+    masterDb.prepare('DELETE FROM global_audit_log').run();
+    try {
+      masterDb.prepare("DELETE FROM sqlite_sequence WHERE name IN ('sessions', 'users', 'companies', 'global_audit_log')").run();
+    } catch {}
+  })();
+
+  // 6. Limpa todos os caches de memória
+  invalidate();
+
+  // 7. Limpa o cookie de sessão do usuário
+  res.setHeader('Set-Cookie', 'sid=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0');
+  res.json({ ok: true, message: 'Sistema completamente formatado. Retornando ao início de tudo.' });
 });
