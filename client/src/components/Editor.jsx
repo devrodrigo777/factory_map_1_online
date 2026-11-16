@@ -4,6 +4,7 @@ import MapStage from './MapStage.jsx';
 import Icon from './Icons.jsx';
 import ExprInput from './ExprInput.jsx';
 import { useToast } from './Toast.jsx';
+import { useConfirm } from './ConfirmModal.jsx';
 import { centroid, clamp, pointsAttr, rectPoints } from '../geometry.js';
 
 const COLORS = ['#2B5C8F', '#E4572E', '#2E8B6B', '#B8860B', '#7B4FA3', '#C23B6B'];
@@ -14,12 +15,13 @@ const withUid = (a) => ({ ...a, uid: `a${a.id}` });
 
 export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onOpenMap }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const stageRef = useRef(null);
   const imgInput = useRef(null);
 
   const [map, setMap] = useState(null);
   const [areas, setAreas] = useState([]);
-  const [sel, setSel] = useState(null);
+  const [selectedUids, setSelectedUids] = useState([]); // Seleção múltipla suportada
   const [tool, setTool] = useState('select'); // select | polygon | rect
   const [draft, setDraft] = useState([]); // pontos normalizados em desenho
   const [hover, setHover] = useState(null);
@@ -27,6 +29,15 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
   const [fields, setFields] = useState([]);
+
+  // Movimentação magnética leve (desativável pelo usuário)
+  const [snapMagnetic, setSnapMagnetic] = useState(() => localStorage.getItem('editor_snap_magnetic') !== 'false');
+
+  const toggleSnapMagnetic = () => {
+    const next = !snapMagnetic;
+    setSnapMagnetic(next);
+    localStorage.setItem('editor_snap_magnetic', String(next));
+  };
 
   const mark = useCallback(() => { setDirty(true); onDirty(true); }, [onDirty]);
   const clean = useCallback(() => { setDirty(false); onDirty(false); }, [onDirty]);
@@ -46,8 +57,62 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
   useEffect(() => { load(); }, [load]);
   useEffect(() => { api.listFields().then(setFields).catch(() => {}); }, []);
 
-  const selArea = areas.find((a) => a.uid === sel) || null;
+  const isNoneSelected = selectedUids.length === 0;
+  const isSingle = selectedUids.length === 1;
+  const isMulti = selectedUids.length > 1;
+  const selArea = isSingle ? areas.find((a) => a.uid === selectedUids[0]) || null : null;
+  const selectedAreas = areas.filter((a) => selectedUids.includes(a.uid));
+
   const norm = (p) => ({ x: clamp(p.x / map.width, 0, 1), y: clamp(p.y / map.height, 0, 1) });
+
+  // Magnetismo leve ao arrastar pontos (alinha ortogonalmente com vértices adjacentes e cantos de outras áreas)
+  const getSnapTarget = (x, y, uid, vertIdx) => {
+    if (!snapMagnetic) return { x, y };
+    const k = stageRef.current?.view?.k || 1;
+    // Tolerância magnética suave de aprox. 9px
+    const thresholdX = 9 / (map.width * k);
+    const thresholdY = 9 / (map.height * k);
+
+    let bestDx = thresholdX;
+    let bestDy = thresholdY;
+    let snappedX = x;
+    let snappedY = y;
+
+    const area = areas.find((a) => a.uid === uid);
+    if (!area) return { x, y };
+
+    const pts = area.points;
+    const prev = pts[(vertIdx - 1 + pts.length) % pts.length];
+    const next = pts[(vertIdx + 1) % pts.length];
+    const candidates = [prev, next];
+
+    areas.forEach((other) => {
+      if (other.uid === uid) {
+        pts.forEach((p, idx) => {
+          if (idx !== vertIdx && idx !== (vertIdx - 1 + pts.length) % pts.length && idx !== (vertIdx + 1) % pts.length) {
+            candidates.push(p);
+          }
+        });
+      } else {
+        other.points.forEach((p) => candidates.push(p));
+      }
+    });
+
+    for (const [cx, cy] of candidates) {
+      const dx = Math.abs(x - cx);
+      if (dx < bestDx) {
+        bestDx = dx;
+        snappedX = cx;
+      }
+      const dy = Math.abs(y - cy);
+      if (dy < bestDy) {
+        bestDy = dy;
+        snappedY = cy;
+      }
+    }
+
+    return { x: snappedX, y: snappedY };
+  };
 
   // ---------- criar / editar áreas ----------
   const addArea = (points) => {
@@ -57,7 +122,7 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
       color: COLORS[list.length % COLORS.length], opacity: 0.25, show_label: true, target_map_id: null,
       lock_filter: '', show_lock: false, display_fields: [],
     }]);
-    setSel(uid);
+    setSelectedUids([uid]);
     setDraft([]);
     setHover(null);
     setTool('select');
@@ -65,7 +130,39 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
   };
 
   const patchArea = (uid, patch) => { setAreas((l) => l.map((a) => (a.uid === uid ? { ...a, ...patch } : a))); mark(); };
-  const removeArea = (uid) => { setAreas((l) => l.filter((a) => a.uid !== uid)); setSel(null); mark(); };
+  
+  const patchMultiAreas = (patch) => {
+    setAreas((l) => l.map((a) => (selectedUids.includes(a.uid) ? { ...a, ...patch } : a)));
+    mark();
+  };
+
+  const removeArea = async (uid) => {
+    const a = areas.find((x) => x.uid === uid);
+    const ok = await confirm({
+      title: 'Excluir área',
+      message: `Deseja excluir a área "${a?.name || 'selecionada'}"?`,
+      confirmText: 'Excluir',
+      danger: true,
+    });
+    if (!ok) return;
+    setAreas((l) => l.filter((x) => x.uid !== uid));
+    setSelectedUids((prev) => prev.filter((id) => id !== uid));
+    mark();
+  };
+
+  const removeSelectedAreas = async () => {
+    const count = selectedUids.length;
+    const ok = await confirm({
+      title: 'Excluir áreas selecionadas',
+      message: `Deseja excluir as ${count} áreas selecionadas?`,
+      confirmText: `Excluir ${count} áreas`,
+      danger: true,
+    });
+    if (!ok) return;
+    setAreas((l) => l.filter((x) => !selectedUids.includes(x.uid)));
+    setSelectedUids([]);
+    mark();
+  };
 
   const finishPolygon = () => {
     if (draft.length >= 3) addArea(draft);
@@ -73,7 +170,7 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
   };
 
   const cancelDraft = () => { setDraft([]); setHover(null); };
-  const chooseTool = (t) => { setTool(t); cancelDraft(); if (t !== 'select') setSel(null); };
+  const chooseTool = (t) => { setTool(t); cancelDraft(); if (t !== 'select') setSelectedUids([]); };
 
   const handleHover = (pt) => {
     if (!pt) { setHover(null); return; }
@@ -81,13 +178,17 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
   };
 
   const onTap = (pt) => {
-    if (tool === 'select') return setSel(null);
+    // Ao clicar no fundo em modo 'select', limpa qualquer seleção ativa
+    if (tool === 'select') {
+      setSelectedUids([]);
+      return;
+    }
     const p = norm(pt);
     if (tool === 'polygon') {
       if (draft.length >= 3) {
         const [fx, fy] = draft[0];
         const d = Math.hypot((fx - p.x) * map.width, (fy - p.y) * map.height) * stageRef.current.view.k;
-        if (d < 18) return finishPolygon(); // toque no primeiro ponto fecha o polígono
+        if (d < 18) return finishPolygon();
       }
       setDraft((d) => [...d, [p.x, p.y]]);
     } else if (tool === 'rect') {
@@ -119,8 +220,9 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
   };
 
   const setPoint = (uid, i, p) => {
-    const n = norm(p);
-    setAreas((l) => l.map((a) => (a.uid !== uid ? a : { ...a, points: a.points.map((pt, j) => (j === i ? [n.x, n.y] : pt)) })));
+    const raw = norm(p);
+    const snapped = getSnapTarget(raw.x, raw.y, uid, i);
+    setAreas((l) => l.map((a) => (a.uid !== uid ? a : { ...a, points: a.points.map((pt, j) => (j === i ? [snapped.x, snapped.y] : pt)) })));
     mark();
   };
 
@@ -139,15 +241,26 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
     mark();
   };
 
-  const startMove = (e, a) => {
-    const snap = a.points;
-    const xs = snap.map((p) => p[0]);
-    const ys = snap.map((p) => p[1]);
+  // Mover área única ou todas as áreas selecionadas em conjunto
+  const startMove = (e, primaryArea) => {
+    const movingUids = selectedUids.includes(primaryArea.uid) ? selectedUids : [primaryArea.uid];
+    const movingAreas = areas.filter((x) => movingUids.includes(x.uid));
+    const allPts = movingAreas.flatMap((x) => x.points);
+    const xs = allPts.map((p) => p[0]);
+    const ys = allPts.map((p) => p[1]);
     const [minX, maxX, minY, maxY] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    const snapshots = movingAreas.map((x) => ({ uid: x.uid, points: x.points }));
+
     drag(e, (p, s) => {
       const dx = clamp((p.x - s.x) / map.width, -minX, 1 - maxX);
       const dy = clamp((p.y - s.y) / map.height, -minY, 1 - maxY);
-      setAreas((l) => l.map((x) => (x.uid !== a.uid ? x : { ...x, points: snap.map(([px, py]) => [px + dx, py + dy]) })));
+      setAreas((l) =>
+        l.map((x) => {
+          const snap = snapshots.find((s) => s.uid === x.uid);
+          if (!snap) return x;
+          return { ...x, points: snap.points.map(([px, py]) => [px + dx, py + dy]) };
+        })
+      );
       mark();
     });
   };
@@ -159,13 +272,14 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
       if (e.key === 'Escape') {
         if (draft.length) cancelDraft();
         else if (tool !== 'select') setTool('select');
-        else setSel(null);
+        else setSelectedUids([]);
       } else if (e.key === 'Enter' && tool === 'polygon' && draft.length >= 3) {
         finishPolygon();
       } else if (e.key === 'Backspace' && draft.length) {
         setDraft((d) => d.slice(0, -1));
-      } else if ((e.key === 'Delete' || e.key === 'Backspace') && sel && !draft.length) {
-        removeArea(sel);
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedUids.length > 0 && !draft.length) {
+        if (isSingle) removeArea(selectedUids[0]);
+        else removeSelectedAreas();
       }
     };
     window.addEventListener('keydown', onKey);
@@ -176,12 +290,11 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
   const save = async () => {
     setSaving(true);
     try {
-      const idx = areas.findIndex((a) => a.uid === sel);
       const saved = await api.saveAreas(mapId, areas.map(({ uid, ...a }) => a));
       setMap(saved);
       const list = saved.areas.map(withUid);
       setAreas(list);
-      setSel(list[idx]?.uid ?? null);
+      setSelectedUids((prev) => list.filter((a) => prev.includes(a.uid)).map((a) => a.uid));
       clean();
       onChanged();
       toast('Alterações salvas.');
@@ -206,7 +319,15 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
     const file = e.target.files?.[0];
     e.target.value = '';
     if (!file) return;
-    if (dirty && !window.confirm('Salve ou descarte as alterações antes? Trocar a imagem recarrega a planta. Continuar?')) return;
+    if (dirty) {
+      const ok = await confirm({
+        title: 'Trocar imagem da planta',
+        message: 'Trocar a imagem recarrega a planta e descarta alterações não salvas. Deseja continuar?',
+        confirmText: 'Continuar e trocar',
+        danger: true,
+      });
+      if (!ok) return;
+    }
     try {
       await api.replaceImage(mapId, file);
       await load();
@@ -216,7 +337,13 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
   };
 
   const deleteMap = async () => {
-    if (!window.confirm(`Excluir a planta "${map.name}" e todas as suas áreas? Áreas de outras plantas que abrem esta imagem perdem o vínculo.`)) return;
+    const ok = await confirm({
+      title: 'Excluir planta',
+      message: `Excluir a planta "${map.name}" e todas as suas áreas? Áreas de outras plantas que abrem esta imagem perderão o vínculo.`,
+      confirmText: 'Excluir planta',
+      danger: true,
+    });
+    if (!ok) return;
     try { await api.deleteMap(mapId); onDeleted(); toast('Planta excluída.'); } catch (e) { toast(e.message, 'error'); }
   };
 
@@ -227,7 +354,7 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
   const overlay = ({ k }) => (
     <>
       {areas.map((a) => {
-        const isSel = a.uid === sel;
+        const isSel = selectedUids.includes(a.uid);
         const [cx, cy] = centroid(a.points, map.width, map.height);
         return (
           <g
@@ -238,7 +365,17 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
             <polygon
               points={pointsAttr(a.points, map.width, map.height)}
               vectorEffect="non-scaling-stroke"
-              onClick={() => tool === 'select' && setSel(a.uid)}
+              onClick={(e) => {
+                if (tool !== 'select') return;
+                e.stopPropagation();
+                if (e.ctrlKey || e.metaKey) {
+                  setSelectedUids((prev) =>
+                    prev.includes(a.uid) ? prev.filter((id) => id !== a.uid) : [...prev, a.uid]
+                  );
+                } else {
+                  setSelectedUids([a.uid]);
+                }
+              }}
               onPointerDown={isSel && tool === 'select' ? (e) => startMove(e, a) : undefined}
             />
             {a.show_label && a.name && <text x={cx} y={cy} fontSize={14 / k} strokeWidth={3.5 / k}>{a.name}</text>}
@@ -246,7 +383,8 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
         );
       })}
 
-      {selArea && tool === 'select' && (
+      {/* Alças de ajuste disponíveis quando apenas UMA área estiver selecionada */}
+      {isSingle && selArea && tool === 'select' && (
         <g>
           {selArea.points.map((p, i) => {
             const q = selArea.points[(i + 1) % selArea.points.length];
@@ -284,8 +422,9 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
   const hint =
     tool === 'polygon' ? (draft.length < 3 ? 'Toque na planta para marcar os cantos da área.' : 'Continue marcando ou toque no primeiro ponto para fechar.')
     : tool === 'rect' ? (draft.length ? 'Toque no canto oposto.' : 'Toque no primeiro canto do retângulo.')
-    : selArea ? 'Arraste os pontos para ajustar. Arraste os pontos claros para criar novos cantos.'
-    : 'Toque em uma área para editar, ou escolha uma ferramenta de desenho.';
+    : isMulti ? `${selectedUids.length} áreas selecionadas. Arraste qualquer uma para mover todas juntas.`
+    : selArea ? 'Arraste os pontos para ajustar. Use CTRL para selecionar múltiplas áreas.'
+    : 'Toque em uma área para editar, segure CTRL para seleção múltipla, ou clique no fundo para ver a planta.';
 
   const otherMaps = maps.filter((m) => m.id !== mapId);
 
@@ -297,6 +436,18 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
           <button className={`btn ${tool === 'polygon' ? 'active' : ''}`} onClick={() => chooseTool('polygon')}><Icon name="polygon" /><span>Polígono</span></button>
           <button className={`btn ${tool === 'rect' ? 'active' : ''}`} onClick={() => chooseTool('rect')}><Icon name="square" /><span>Retângulo</span></button>
         </div>
+
+        {/* Botão de alternância magnética */}
+        <button
+          type="button"
+          className={`btn ${snapMagnetic ? 'active' : ''}`}
+          onClick={toggleSnapMagnetic}
+          title={snapMagnetic ? 'Alinhamento magnético ativado (clique para desativar)' : 'Alinhamento magnético desativado (clique para ativar)'}
+        >
+          <Icon name="magnet" />
+          <span>{snapMagnetic ? 'Magnético: Ativo' : 'Magnético: Inativo'}</span>
+        </button>
+
         {tool === 'polygon' && draft.length > 0 && (
           <>
             <button className="btn primary" onClick={finishPolygon} disabled={draft.length < 3}><Icon name="check" /><span>Concluir</span></button>
@@ -323,110 +474,212 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
         </div>
 
         <aside className="inspector">
-          <section className="panel">
-            <h2>Planta</h2>
-            <label className="field">Nome
-              <input value={name} onChange={(e) => setName(e.target.value)} onBlur={renameMap} onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
-            </label>
-            <div className="row">
-              <input ref={imgInput} type="file" hidden accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif" onChange={replaceImage} />
-              <button className="btn" onClick={() => imgInput.current.click()}><Icon name="swap" /> Trocar imagem</button>
-              <button className="btn" onClick={makeRoot} disabled={map.is_root}><Icon name="star" /> {map.is_root ? 'Tela inicial' : 'Definir como inicial'}</button>
-              <button className="btn danger" onClick={deleteMap}><Icon name="trash" /> Excluir</button>
-            </div>
-            <p className="muted">{map.width} × {map.height} px</p>
-          </section>
-
-          <section className="panel">
-            <h2>Áreas ({areas.length})</h2>
-            {areas.length === 0 && <p className="muted">Nenhuma área ainda. Use Polígono ou Retângulo para desenhar a primeira.</p>}
-            <ul className="area-list">
-              {areas.map((a) => (
-                <li key={a.uid}>
-                  <button className={a.uid === sel ? 'active' : ''} onClick={() => { chooseTool('select'); setSel(a.uid); }}>
-                    <span className="swatch" style={{ background: a.color }} />
-                    <span>{a.name || 'Sem nome'}</span>
-                    {a.target_map_id && <Icon name="open" size={15} />}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          {selArea && (
-            <section className="panel" key={selArea.uid}>
-              <h2>Área selecionada</h2>
-              <label className="field">Nome
-                <input value={selArea.name} onChange={(e) => patchArea(selArea.uid, { name: e.target.value })} />
-              </label>
-              <label className="field">Código
-                <input value={selArea.code} placeholder="Ex.: PRD-01" onChange={(e) => patchArea(selArea.uid, { code: e.target.value })} />
-                <small>Será usado para ligar esta área a planilhas e métricas.</small>
-              </label>
-              <label className="field">Descrição
-                <textarea rows={3} value={selArea.description} onChange={(e) => patchArea(selArea.uid, { description: e.target.value })} />
-              </label>
-              <label className="field">Ao clicar, abrir
-                <select value={selArea.target_map_id ?? ''} onChange={(e) => patchArea(selArea.uid, { target_map_id: e.target.value ? Number(e.target.value) : null })}>
-                  <option value="">Apenas mostrar informações</option>
-                  {otherMaps.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-                </select>
-                {otherMaps.length === 0 && <small>Envie outra imagem para usá-la como detalhe.</small>}
-              </label>
-              {selArea.target_map_id && (
-                <button className="btn" onClick={() => onOpenMap(selArea.target_map_id)}><Icon name="open" /> Editar imagem de detalhe</button>
-              )}
-              <div className="row">
-                <label className="field color">Cor
-                  <input type="color" value={selArea.color} onChange={(e) => patchArea(selArea.uid, { color: e.target.value })} />
+          {/* Seção 1: 'Planta' e 'Áreas' aparecem SOMENTE quando nada estiver selecionado (clique no fundo) */}
+          {isNoneSelected && (
+            <>
+              <section className="panel">
+                <h2>Planta</h2>
+                <label className="field">Nome
+                  <input value={name} onChange={(e) => setName(e.target.value)} onBlur={renameMap} onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()} />
                 </label>
-                <label className="field grow">Opacidade ({Math.round(selArea.opacity * 100)}%)
-                  <input type="range" min="0" max="0.8" step="0.05" value={selArea.opacity} onChange={(e) => patchArea(selArea.uid, { opacity: Number(e.target.value) })} />
-                </label>
-              </div>
-              <label className="check">
-                <input type="checkbox" checked={selArea.show_label} onChange={(e) => patchArea(selArea.uid, { show_label: e.target.checked })} />
-                Mostrar o nome sobre a área
-              </label>
-              <button className="btn danger" onClick={() => removeArea(selArea.uid)}><Icon name="trash" /> Excluir área</button>
-            </section>
+                <div className="row">
+                  <input ref={imgInput} type="file" hidden accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif" onChange={replaceImage} />
+                  <button className="btn" onClick={() => imgInput.current.click()}><Icon name="swap" /> Trocar imagem</button>
+                  <button className="btn" onClick={makeRoot} disabled={map.is_root}><Icon name="star" /> {map.is_root ? 'Tela inicial' : 'Definir como inicial'}</button>
+                  <button className="btn danger" onClick={deleteMap}><Icon name="trash" /> Excluir</button>
+                </div>
+                <p className="muted">{map.width} × {map.height} px</p>
+              </section>
+
+              <section className="panel">
+                <h2>Áreas ({areas.length})</h2>
+                {areas.length === 0 && <p className="muted">Nenhuma área ainda. Use Polígono ou Retângulo para desenhar a primeira.</p>}
+                <ul className="area-list">
+                  {areas.map((a) => (
+                    <li key={a.uid}>
+                      <button
+                        className={selectedUids.includes(a.uid) ? 'active' : ''}
+                        onClick={(e) => {
+                          chooseTool('select');
+                          if (e.ctrlKey || e.metaKey) {
+                            setSelectedUids((prev) =>
+                              prev.includes(a.uid) ? prev.filter((id) => id !== a.uid) : [...prev, a.uid]
+                            );
+                          } else {
+                            setSelectedUids([a.uid]);
+                          }
+                        }}
+                      >
+                        <span className="swatch" style={{ background: a.color }} />
+                        <span>{a.name || 'Sem nome'}</span>
+                        {a.target_map_id && <Icon name="open" size={15} />}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </>
           )}
-          {selArea && (
-            <section className="panel" key={`lock-${selArea.uid}`}>
-              <h2>Cadeado (LOTO)</h2>
-              <label className="check">
-                <input type="checkbox" checked={selArea.show_lock} onChange={(e) => patchArea(selArea.uid, { show_lock: e.target.checked })} />
-                Mostrar cadeado quando houver bloqueio ativo
-              </label>
-              {selArea.show_lock && (
-                <>
-                  <div className="field">Quais registros pertencem a esta área?
-                    <ExprInput
-                      value={selArea.lock_filter}
-                      onChange={(v) => patchArea(selArea.uid, { lock_filter: v })}
-                      fields={fields.filter((f) => !f.computed)}
-                      placeholder={'[Setor] == "Produção"'}
-                    />
-                    <small>Área macro: filtre só pelo setor. Área de detalhe: setor e equipamento.</small>
-                  </div>
-                  <fieldset className="cols-pick">
-                    <legend>Informações mostradas ao clicar no cadeado</legend>
-                    <small>Nenhuma marcada = todos os campos exibidos.</small>
-                    {fields.map((f) => (
-                      <label key={f.key} className="check compact">
-                        <input type="checkbox" checked={selArea.display_fields.includes(f.key)}
-                          onChange={(e) => patchArea(selArea.uid, {
-                            display_fields: e.target.checked
-                              ? fields.filter((x) => x.key === f.key || selArea.display_fields.includes(x.key)).map((x) => x.key)
-                              : selArea.display_fields.filter((k) => k !== f.key),
-                          })} />
-                        {f.label}{f.computed ? ' ƒ' : ''}
-                      </label>
-                    ))}
-                  </fieldset>
-                </>
-              )}
-            </section>
+
+          {/* Seção 2: Edição de Área ÚNICA selecionada */}
+          {isSingle && selArea && (
+            <>
+              <section className="panel" key={selArea.uid}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h2>Área selecionada</h2>
+                  <button className="btn icon ghost" onClick={() => setSelectedUids([])} title="Fechar e voltar à planta">
+                    <Icon name="close" size={16} />
+                  </button>
+                </div>
+                <label className="field">Nome
+                  <input value={selArea.name} onChange={(e) => patchArea(selArea.uid, { name: e.target.value })} />
+                </label>
+                <label className="field">Código
+                  <input value={selArea.code} placeholder="Ex.: PRD-01" onChange={(e) => patchArea(selArea.uid, { code: e.target.value })} />
+                  <small>Será usado para ligar esta área a planilhas e métricas.</small>
+                </label>
+                <label className="field">Descrição
+                  <textarea rows={3} value={selArea.description} onChange={(e) => patchArea(selArea.uid, { description: e.target.value })} />
+                </label>
+                <label className="field">Ao clicar, abrir
+                  <select value={selArea.target_map_id ?? ''} onChange={(e) => patchArea(selArea.uid, { target_map_id: e.target.value ? Number(e.target.value) : null })}>
+                    <option value="">Apenas mostrar informações</option>
+                    {otherMaps.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                  </select>
+                  {otherMaps.length === 0 && <small>Envie outra imagem para usá-la como detalhe.</small>}
+                </label>
+                {selArea.target_map_id && (
+                  <button className="btn" onClick={() => onOpenMap(selArea.target_map_id)}><Icon name="open" /> Editar imagem de detalhe</button>
+                )}
+                <div className="row">
+                  <label className="field color">Cor
+                    <input type="color" value={selArea.color} onChange={(e) => patchArea(selArea.uid, { color: e.target.value })} />
+                  </label>
+                  <label className="field grow">Opacidade ({Math.round(selArea.opacity * 100)}%)
+                    <input type="range" min="0" max="0.8" step="0.05" value={selArea.opacity} onChange={(e) => patchArea(selArea.uid, { opacity: Number(e.target.value) })} />
+                  </label>
+                </div>
+                <label className="check">
+                  <input type="checkbox" checked={selArea.show_label} onChange={(e) => patchArea(selArea.uid, { show_label: e.target.checked })} />
+                  Mostrar o nome sobre a área
+                </label>
+                <button className="btn danger" onClick={() => removeArea(selArea.uid)}><Icon name="trash" /> Excluir área</button>
+              </section>
+
+              <section className="panel" key={`lock-${selArea.uid}`}>
+                <h2>Cadeado (LOTO)</h2>
+                <label className="check">
+                  <input type="checkbox" checked={selArea.show_lock} onChange={(e) => patchArea(selArea.uid, { show_lock: e.target.checked })} />
+                  Mostrar cadeado quando houver bloqueio ativo
+                </label>
+                {selArea.show_lock && (
+                  <>
+                    <div className="field">Quais registros pertencem a esta área?
+                      <ExprInput
+                        value={selArea.lock_filter}
+                        onChange={(v) => patchArea(selArea.uid, { lock_filter: v })}
+                        fields={fields.filter((f) => !f.computed)}
+                        placeholder={'[Setor] == "Produção"'}
+                      />
+                      <small>Área macro: filtre só pelo setor. Área de detalhe: setor e equipamento.</small>
+                    </div>
+                    <fieldset className="cols-pick">
+                      <legend>Informações mostradas ao clicar no cadeado</legend>
+                      <small>Nenhuma marcada = todos os campos exibidos.</small>
+                      {fields.map((f) => (
+                        <label key={f.key} className="check compact">
+                          <input type="checkbox" checked={selArea.display_fields.includes(f.key)}
+                            onChange={(e) => patchArea(selArea.uid, {
+                              display_fields: e.target.checked
+                                ? fields.filter((x) => x.key === f.key || selArea.display_fields.includes(x.key)).map((x) => x.key)
+                                : selArea.display_fields.filter((k) => k !== f.key),
+                            })} />
+                          {f.label}{f.computed ? ' ƒ' : ''}
+                        </label>
+                      ))}
+                    </fieldset>
+                  </>
+                )}
+              </section>
+            </>
+          )}
+
+          {/* Seção 3: Edição MÚLTIPLA com CTRL (apenas informações de Cadeado (LOTO) para baixo) */}
+          {isMulti && (
+            <>
+              <section className="panel">
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h2>{selectedUids.length} áreas selecionadas</h2>
+                  <button className="btn icon ghost" onClick={() => setSelectedUids([])} title="Limpar seleção e voltar à planta">
+                    <Icon name="close" size={16} />
+                  </button>
+                </div>
+                <p className="muted" style={{ margin: '4px 0' }}>
+                  Edição em lote: as regras abaixo serão sincronizadas em todas as áreas selecionadas.
+                </p>
+                <div className="row" style={{ marginTop: 8 }}>
+                  <button className="btn danger" onClick={removeSelectedAreas}>
+                    <Icon name="trash" /> Excluir {selectedUids.length} áreas selecionadas
+                  </button>
+                </div>
+              </section>
+
+              <section className="panel">
+                <h2>Cadeado (LOTO)</h2>
+                <label className="check">
+                  <input
+                    type="checkbox"
+                    checked={selectedAreas.every((a) => a.show_lock)}
+                    onChange={(e) => patchMultiAreas({ show_lock: e.target.checked })}
+                  />
+                  Mostrar cadeado quando houver bloqueio ativo
+                </label>
+
+                {selectedAreas.some((a) => a.show_lock) && (
+                  <>
+                    <div className="field">Quais registros pertencem a estas áreas?
+                      <ExprInput
+                        value={selectedAreas[0]?.lock_filter || ''}
+                        onChange={(v) => patchMultiAreas({ lock_filter: v })}
+                        fields={fields.filter((f) => !f.computed)}
+                        placeholder={'[Setor] == "Produção"'}
+                      />
+                      <small>Aplica a mesma regra de filtro a todas as {selectedUids.length} áreas selecionadas.</small>
+                    </div>
+
+                    <fieldset className="cols-pick">
+                      <legend>Informações mostradas ao clicar no cadeado</legend>
+                      <small>Nenhuma marcada = todos os campos exibidos.</small>
+                      {fields.map((f) => {
+                        const allHave = selectedAreas.every((a) => a.display_fields.includes(f.key));
+                        return (
+                          <label key={f.key} className="check compact">
+                            <input
+                              type="checkbox"
+                              checked={allHave}
+                              onChange={(e) => {
+                                const checked = e.target.checked;
+                                setAreas((l) =>
+                                  l.map((a) => {
+                                    if (!selectedUids.includes(a.uid)) return a;
+                                    const nextCols = checked
+                                      ? fields.filter((x) => x.key === f.key || a.display_fields.includes(x.key)).map((x) => x.key)
+                                      : a.display_fields.filter((k) => k !== f.key);
+                                    return { ...a, display_fields: nextCols };
+                                  })
+                                );
+                                mark();
+                              }}
+                            />
+                            {f.label}{f.computed ? ' ƒ' : ''}
+                          </label>
+                        );
+                      })}
+                    </fieldset>
+                  </>
+                )}
+              </section>
+            </>
           )}
         </aside>
       </div>

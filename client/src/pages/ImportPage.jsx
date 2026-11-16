@@ -3,6 +3,7 @@ import { api } from '../api.js';
 import Shell from '../components/Shell.jsx';
 import Icon from '../components/Icons.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useConfirm } from '../components/ConfirmModal.jsx';
 import { formatInt } from '../format.js';
 
 const TYPE_LABEL = { text: 'Texto', number: 'Número', date: 'Data/hora' };
@@ -38,6 +39,7 @@ const scoreProfile = (preview, profile) => {
 
 export default function ImportPage() {
   const toast = useToast();
+  const confirm = useConfirm();
   const fileRef = useRef(null);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -92,7 +94,14 @@ export default function ImportPage() {
 
   const deleteProfile = async () => {
     const p = profiles.find((x) => String(x.id) === profileId);
-    if (!p || !window.confirm(`Excluir o perfil “${p.name}”?`)) return;
+    if (!p) return;
+    const ok = await confirm({
+      title: 'Excluir perfil de importação',
+      message: `Excluir o perfil “${p.name}”?`,
+      confirmText: 'Excluir perfil',
+      danger: true,
+    });
+    if (!ok) return;
     try { await api.deleteProfile(p.id); await loadProfiles(); choose_profile(preview, file, null, false); } catch (err) { toast(err.message, 'error'); }
   };
 
@@ -134,7 +143,13 @@ export default function ImportPage() {
   };
 
   const undo = async (h) => {
-    if (!window.confirm(`Desfazer a importação de "${h.filename}"? Os ${h.rows_imported} registros dela serão removidos (os campos criados permanecem).`)) return;
+    const ok = await confirm({
+      title: 'Desfazer importação',
+      message: `Desfazer a importação de "${h.filename}"? Os ${h.rows_imported} registros dela serão removidos (os campos criados permanecem).`,
+      confirmText: 'Desfazer importação',
+      danger: true,
+    });
+    if (!ok) return;
     try { await api.deleteImport(h.id); toast('Importação desfeita.'); loadHistory(); } catch (e) { toast(e.message, 'error'); }
   };
 

@@ -4,9 +4,11 @@ import Editor from '../components/Editor.jsx';
 import Icon from '../components/Icons.jsx';
 import Shell from '../components/Shell.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useConfirm } from '../components/ConfirmModal.jsx';
 
 export default function Admin() {
   const toast = useToast();
+  const confirm = useConfirm();
   const fileRef = useRef(null);
   const [maps, setMaps] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
@@ -33,10 +35,20 @@ export default function Admin() {
     return () => window.removeEventListener('beforeunload', warn);
   }, [dirty]);
 
-  const confirmLeave = () => !dirty || window.confirm('Há alterações não salvas nesta planta. Descartar?');
+  const confirmLeave = async () => {
+    if (!dirty) return true;
+    return await confirm({
+      title: 'Descartar alterações?',
+      message: 'Há alterações não salvas nesta planta. Deseja descartar?',
+      confirmText: 'Descartar alterações',
+      danger: true,
+    });
+  };
 
-  const select = (id) => {
-    if (id === selectedId || !confirmLeave()) return;
+  const select = async (id) => {
+    if (id === selectedId) return;
+    const ok = await confirmLeave();
+    if (!ok) return;
     setDirty(false);
     setSelectedId(id);
   };
@@ -44,7 +56,9 @@ export default function Admin() {
   const onUpload = async (e) => {
     const file = e.target.files?.[0];
     e.target.value = '';
-    if (!file || !confirmLeave()) return;
+    if (!file) return;
+    const ok = await confirmLeave();
+    if (!ok) return;
     setUploading(true);
     try {
       const name = file.name.replace(/\.[^.]+$/, '');

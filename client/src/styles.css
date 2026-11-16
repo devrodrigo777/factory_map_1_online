@@ -51,11 +51,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .field { display: flex; flex-direction: column; gap: 4px; font-weight: 600; font-size: 13px; color: var(--steel); }
 .field small { font-weight: 400; color: var(--steel); }
 .field.grow { flex: 1; }
-.field input:not([type='color']):not([type='range']), .field select, .field textarea {
+.field input:not([type='color']):not([type='range']), .field select, .field textarea:not(.code-editor-textarea) {
   min-height: 40px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
   background: #fff; font-weight: 400; color: var(--ink); width: 100%;
 }
-.field textarea { resize: vertical; }
+.field textarea:not(.code-editor-textarea) { resize: vertical; }
 .field input[type='color'] { width: 56px; height: 40px; padding: 2px; border: 1px solid var(--line); border-radius: 8px; background: #fff; }
 .field input[type='range'] { width: 100%; height: 40px; accent-color: var(--blue); }
 .check { display: flex; align-items: center; gap: 10px; font-size: 14px; min-height: 36px; }
@@ -343,46 +343,57 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
 /* expressões e editor de código */
 .expr { display: flex; flex-direction: column; gap: 8px; font-weight: 400; }
 .code-editor-container {
-  position: relative; display: flex; background: #0d1117; border: 1px solid #30363d;
-  border-radius: 8px; overflow: visible; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-  font-size: 13px; line-height: 1.5; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+  position: relative !important; display: flex !important; background: #0d1117 !important; border: 1px solid #30363d !important;
+  border-radius: 8px !important; overflow: visible !important; font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace !important;
+  font-size: 13px !important; line-height: 1.5 !important; box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4) !important;
+  color: #c9d1d9 !important;
 }
 .code-editor-container:focus-within {
-  border-color: #58a6ff; box-shadow: 0 0 0 1px #58a6ff, inset 0 1px 3px rgba(0, 0, 0, 0.3);
+  border-color: #58a6ff !important; box-shadow: 0 0 0 1px #58a6ff, inset 0 1px 3px rgba(0, 0, 0, 0.4) !important;
 }
 .code-editor-gutter {
-  background: #090d13; border-right: 1px solid #21262d; color: #484f58; padding: 8px 0;
-  user-select: none; text-align: right; min-width: 32px; box-sizing: border-box; overflow: hidden; flex: none;
+  background: #090d13 !important; border-right: 1px solid #21262d !important; color: #6e7681 !important; padding: 8px 0 !important;
+  user-select: none !important; text-align: right !important; min-width: 32px !important; box-sizing: border-box !important; overflow: hidden !important; flex: none !important;
 }
 .code-line-num {
-  padding: 0 8px; line-height: 1.5; font-size: 11.5px; height: 19.5px; font-variant-numeric: tabular-nums;
+  padding: 0 8px !important; line-height: 1.5 !important; font-size: 11.5px !important; height: 19.5px !important; font-variant-numeric: tabular-nums !important;
+  color: #6e7681 !important;
 }
 .code-editor-viewport {
-  position: relative; flex: 1; min-width: 0; min-height: 58px; overflow: hidden;
+  position: relative !important; flex: 1 !important; min-width: 0 !important; min-height: 58px !important; overflow: hidden !important;
 }
 .code-editor-highlight {
-  position: absolute; top: 0; left: 0; right: 0; bottom: 0; margin: 0; padding: 8px 12px;
-  line-height: 1.5; font-family: inherit; font-size: 13px; white-space: pre-wrap; word-break: break-word;
-  pointer-events: none; color: #c9d1d9; background: transparent; overflow: hidden; box-sizing: border-box;
+  position: absolute !important; top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important; margin: 0 !important; padding: 8px 12px !important;
+  line-height: 1.5 !important; font-family: inherit !important; font-size: 13px !important; white-space: pre-wrap !important; word-break: break-word !important;
+  pointer-events: none !important; color: #c9d1d9 !important; background: transparent !important; overflow: hidden !important; box-sizing: border-box !important;
+  border: none !important;
 }
-.code-editor-textarea {
-  position: relative; width: 100%; height: 100%; min-height: 58px; margin: 0; padding: 8px 12px;
-  line-height: 1.5; font-family: inherit; font-size: 13px; white-space: pre-wrap; word-break: break-word;
-  color: transparent; caret-color: #58a6ff; background: transparent; border: none; outline: none;
-  resize: vertical; box-sizing: border-box;
+.code-editor-textarea,
+.field .code-editor-textarea,
+.field textarea.code-editor-textarea {
+  position: relative !important; width: 100% !important; height: 100% !important; min-height: 58px !important; margin: 0 !important; padding: 8px 12px !important;
+  line-height: 1.5 !important; font-family: inherit !important; font-size: 13px !important; white-space: pre-wrap !important; word-break: break-word !important;
+  color: transparent !important; caret-color: #58a6ff !important; background: transparent !important; border: none !important; outline: none !important;
+  resize: vertical !important; box-sizing: border-box !important; box-shadow: none !important;
 }
-.code-editor-textarea.is-empty { color: #6e7681; }
-.code-editor-textarea::selection { background: rgba(56, 139, 253, 0.4); color: transparent; }
+.code-editor-textarea.is-empty,
+.field .code-editor-textarea.is-empty,
+.field textarea.code-editor-textarea.is-empty {
+  color: #6e7681 !important;
+}
+.code-editor-textarea::selection {
+  background: rgba(56, 139, 253, 0.4) !important; color: transparent !important;
+}
 
 /* Cores de tokens para destaque de sintaxe das expressões */
-.tok-function { color: #d2a8ff; font-weight: 600; }
-.tok-field { color: #79c0ff; font-weight: 600; }
-.tok-keyword { color: #ff7b72; font-weight: 600; }
-.tok-string { color: #a5d6ff; }
-.tok-number { color: #ffa657; }
-.tok-operator { color: #ff7b72; }
-.tok-punctuation { color: #8b949e; }
-.tok-plain { color: #e6edf3; }
+.tok-function { color: #d2a8ff !important; font-weight: 600 !important; }
+.tok-field { color: #79c0ff !important; font-weight: 600 !important; }
+.tok-keyword { color: #ff7b72 !important; font-weight: 600 !important; }
+.tok-string { color: #a5d6ff !important; }
+.tok-number { color: #ffa657 !important; }
+.tok-operator { color: #ff7b72 !important; }
+.tok-punctuation { color: #8b949e !important; }
+.tok-plain { color: #e6edf3 !important; }
 
 /* Menu de autocomplete inteligente */
 .code-autocomplete {

@@ -5,6 +5,7 @@ import Shell from '../components/Shell.jsx';
 import Modal from '../components/Modal.jsx';
 import Icon from '../components/Icons.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useConfirm } from '../components/ConfirmModal.jsx';
 import { formatBytes, formatDateTime, formatInt } from '../format.js';
 import DynamicSyncCode from '../components/DynamicSyncCode.jsx';
 import SyncCameraScanner from '../components/SyncCameraScanner.jsx';
@@ -27,6 +28,7 @@ function parseManifestFromCode(code) {
 
 export default function Backup() {
   const toast = useToast();
+  const confirm = useConfirm();
   const { expire } = useAuth();
   const fileRef = useRef(null);
 
@@ -92,7 +94,13 @@ export default function Backup() {
       : mode === 'replace'
         ? 'Restaurar vai SUBSTITUIR todos os registros atuais pelos do backup.'
         : 'Os registros do backup serão ACRESCENTADOS aos atuais (repetidos são ignorados).';
-    if (!window.confirm(`${msg}\n\nUm backup de segurança do estado atual é criado antes. Continuar?`)) return;
+    const ok = await confirm({
+      title: 'Restaurar backup',
+      message: `${msg}\n\nUm backup de segurança do estado atual é criado antes. Continuar?`,
+      confirmText: 'Restaurar backup',
+      danger: true,
+    });
+    if (!ok) return;
     setBusy(true);
     try {
       const r = await api.restoreBackup({ file: pending.file, name: pending.name, mode });
@@ -104,7 +112,13 @@ export default function Backup() {
   };
 
   const remove = async (b) => {
-    if (!window.confirm(`Excluir o arquivo ${b.name} do servidor?`)) return;
+    const ok = await confirm({
+      title: 'Excluir backup',
+      message: `Excluir o arquivo ${b.name} do servidor?`,
+      confirmText: 'Excluir arquivo',
+      danger: true,
+    });
+    if (!ok) return;
     try { await api.deleteBackup(b.name); load(); } catch (e) { fail(e); }
   };
 

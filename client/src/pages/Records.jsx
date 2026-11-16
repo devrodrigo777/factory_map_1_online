@@ -5,11 +5,13 @@ import Modal from '../components/Modal.jsx';
 import Lightbox from '../components/Lightbox.jsx';
 import Icon from '../components/Icons.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useConfirm } from '../components/ConfirmModal.jsx';
 import { useAuth } from '../components/Auth.jsx';
 import { formatDateTime, formatInt, formatValue, nowInput, parsePhotoUrls, toInputDate } from '../format.js';
 
 export default function Records() {
   const toast = useToast();
+  const confirm = useConfirm();
   const { can } = useAuth();
   const canEdit = can('operator');
   const [fields, setFields] = useState([]);
@@ -62,7 +64,13 @@ export default function Records() {
   const removeSelected = async () => {
     const count = selectedIds.size;
     if (count === 0) return;
-    if (!window.confirm(`Excluir ${count} ${count === 1 ? 'registro' : 'registros'}? Essa ação não pode ser desfeita.`)) return;
+    const ok = await confirm({
+      title: 'Excluir registros',
+      message: `Excluir ${count} ${count === 1 ? 'registro' : 'registros'} selecionados? Essa ação não pode ser desfeita.`,
+      confirmText: `Excluir ${count} ${count === 1 ? 'registro' : 'registros'}`,
+      danger: true,
+    });
+    if (!ok) return;
     try {
       await api.deleteRecords([...selectedIds]);
       toast(`${count} ${count === 1 ? 'registro excluído' : 'registros excluídos'}.`);
@@ -81,7 +89,13 @@ export default function Records() {
   };
 
   const remove = async (row) => {
-    if (!window.confirm('Excluir este registro? Essa ação não pode ser desfeita.')) return;
+    const ok = await confirm({
+      title: 'Excluir registro',
+      message: 'Excluir este registro de bloqueio? Essa ação não pode ser desfeita.',
+      confirmText: 'Excluir registro',
+      danger: true,
+    });
+    if (!ok) return;
     try { await api.deleteRecord(row.id); load(); } catch (e) { toast(e.message, 'error'); }
   };
 

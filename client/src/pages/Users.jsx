@@ -5,10 +5,12 @@ import Shell from '../components/Shell.jsx';
 import Modal from '../components/Modal.jsx';
 import Icon from '../components/Icons.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useConfirm } from '../components/ConfirmModal.jsx';
 import { ROLE_HELP, ROLE_NAMES, formatDateTime } from '../format.js';
 
 export default function Users() {
   const toast = useToast();
+  const confirm = useConfirm();
   const { user: me, config, refresh } = useAuth();
   const [users, setUsers] = useState(null);
   const [audit, setAudit] = useState([]);
@@ -23,7 +25,13 @@ export default function Users() {
 
   const patch = async (u, body) => { try { await api.patchUser(u.id, body); load(); } catch (e) { fail(e); load(); } };
   const remove = async (u) => {
-    if (!window.confirm(`Excluir o usuário "${u.name}"? Os registros feitos por ele continuam no histórico.`)) return;
+    const ok = await confirm({
+      title: 'Excluir usuário',
+      message: `Excluir o usuário "${u.name}"? Os registros feitos por ele continuam no histórico.`,
+      confirmText: 'Excluir usuário',
+      danger: true,
+    });
+    if (!ok) return;
     try { await api.deleteUser(u.id); load(); } catch (e) { fail(e); }
   };
   const togglePublic = async (enabled) => {

@@ -4,12 +4,14 @@ import Shell from '../components/Shell.jsx';
 import ExprInput from '../components/ExprInput.jsx';
 import Icon from '../components/Icons.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useConfirm } from '../components/ConfirmModal.jsx';
 import { ROLE_LABELS } from '../format.js';
 
 const TYPE_LABEL = { text: 'Texto', number: 'Número', date: 'Data/hora', photo: 'Foto URL' };
 
 export default function Fields() {
   const toast = useToast();
+  const confirm = useConfirm();
   const [tab, setTab] = useState('fields'); // 'fields' | 'default_kpis'
   const [fields, setFields] = useState(null);
   const [kpis, setKpis] = useState([]);
@@ -53,7 +55,13 @@ export default function Fields() {
     try { await api.orderFields(keys); load(); } catch (e) { fail(e); }
   };
   const remove = async (f) => {
-    if (!window.confirm(`Excluir o campo "${f.label}"${f.computed ? '' : ' e os valores dele em todos os registros'}?`)) return;
+    const ok = await confirm({
+      title: 'Excluir campo',
+      message: `Excluir o campo "${f.label}"${f.computed ? '' : ' e os valores dele em todos os registros'}?`,
+      confirmText: 'Excluir campo',
+      danger: true,
+    });
+    if (!ok) return;
     try { await api.deleteField(f.id); load(); } catch (e) { fail(e); }
   };
   const addField = async () => {
@@ -220,7 +228,15 @@ export default function Fields() {
                   <li key={k.id} className="field-row">
                     <KpiRow kpi={k} fields={baseFields.concat((fields || []).filter((f) => f.computed))}
                       onSave={async (body) => { try { await api.patchKpi(k.id, body); toast('KPI salvo.'); load(); } catch (e) { fail(e); } }}
-                      onDelete={async () => { if (window.confirm(`Excluir o KPI "${k.name}"?`)) { await api.deleteKpi(k.id); load(); } }} />
+                      onDelete={async () => {
+                        const ok = await confirm({
+                          title: 'Excluir KPI',
+                          message: `Excluir o KPI "${k.name}"?`,
+                          confirmText: 'Excluir KPI',
+                          danger: true,
+                        });
+                        if (ok) { await api.deleteKpi(k.id); load(); }
+                      }} />
                   </li>
                 ))}
               </ul>
