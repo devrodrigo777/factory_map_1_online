@@ -376,7 +376,17 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
                   setSelectedUids([a.uid]);
                 }
               }}
-              onPointerDown={isSel && tool === 'select' ? (e) => startMove(e, a) : undefined}
+              onPointerDown={(e) => {
+                if (tool !== 'select') return;
+                e.stopPropagation();
+                if (e.ctrlKey || e.metaKey) return;
+                if (isSel) {
+                  startMove(e, a);
+                } else {
+                  setSelectedUids([a.uid]);
+                  startMove(e, a);
+                }
+              }}
             />
             {a.show_label && a.name && <text x={cx} y={cy} fontSize={14 / k} strokeWidth={3.5 / k}>{a.name}</text>}
           </g>
