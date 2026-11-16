@@ -267,16 +267,6 @@ app.put('/api/maps/:id/areas', (req, res) => {
   })();
   res.json(withAreas(getQueries().one.get(id)));
 });
-  if (!Array.isArray(req.body.areas)) throw httpError(400, 'Formato inválido.');
-  const validIds = new Set(q.list.all().map((m) => m.id));
-  const rows = req.body.areas.map((a, i) => cleanArea(a, id, validIds, i));
-  db.transaction(() => {
-    db.prepare('DELETE FROM areas WHERE map_id = ?').run(id);
-    rows.forEach((r) => q.insertArea.run(r));
-    db.prepare("UPDATE maps SET updated_at = datetime('now') WHERE id = ?").run(id);
-  })();
-  res.json(withAreas(q.one.get(id)));
-});
 
 app.use('/api', loto);
 app.use('/api', backupRouter);
