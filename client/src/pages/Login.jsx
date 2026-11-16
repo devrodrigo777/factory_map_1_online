@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../components/Auth.jsx';
 import { api } from '../api.js';
 import Icon from '../components/Icons.jsx';
+import Modal from '../components/Modal.jsx';
 
 export default function Login() {
   const { loading, user, config, login, setup } = useAuth();
@@ -14,6 +15,7 @@ export default function Login() {
   const [needCaptcha, setNeedCaptcha] = useState(false);
   const [captchaData, setCaptchaData] = useState(null);
   const [captchaInput, setCaptchaInput] = useState('');
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   const firstRun = config.setup_needed;
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
@@ -83,7 +85,7 @@ export default function Login() {
         <p className="muted">
           {firstRun
             ? 'Crie o administrador do sistema. Ele poderá cadastrar os demais usuários.'
-            : 'Mapa de bloqueios LOTOTO'}
+            : 'EasyLOTOTO v2 • Gestão Visual de Bloqueios e Etiquetagens LOTOTO'}
         </p>
         {firstRun && (
           <>
@@ -141,6 +143,57 @@ export default function Login() {
         <button className="btn primary wide" disabled={busy}>{busy ? 'Aguarde…' : firstRun ? 'Criar administrador' : 'Entrar'}</button>
         {!firstRun && config.public_view && <a className="login-public" href={loc.state?.from || '/'}>Ver o mapa sem entrar</a>}
       </form>
+
+      <div className="login-sub-links" style={{ marginTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, fontSize: 13, flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          onClick={() => setAboutOpen(true)}
+          style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', padding: 0, fontSize: 13, textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: 5 }}
+        >
+          <Icon name="info" size={14} /> Sobre o EasyLOTOTO for Knauf
+        </button>
+        <span style={{ color: '#475569' }}>•</span>
+        <Link
+          to="/manual"
+          style={{ color: '#94a3b8', fontSize: 13, textDecoration: 'underline', display: 'flex', alignItems: 'center', gap: 5 }}
+        >
+          <Icon name="file" size={14} /> Manual de Uso
+        </Link>
+      </div>
+
+      {aboutOpen && (
+        <Modal title="Sobre o EasyLOTOTO for Knauf" onClose={() => setAboutOpen(false)}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div>
+              <h4 style={{ margin: '0 0 6px', color: '#fff', fontSize: '1rem' }}>Apresentação do Sistema</h4>
+              <p style={{ margin: 0, color: 'var(--steel, #94a3b8)', lineHeight: 1.5, fontSize: '0.92rem' }}>
+                O <strong>EasyLOTOTO for Knauf</strong> é um sistema simples desenvolvido para a gestão visual de bloqueios e etiquetagens de energia perigosa (LOTOTO - Lockout, Tagout, Tryout) na fábrica.
+              </p>
+              <p style={{ margin: '8px 0 0', color: 'var(--steel, #94a3b8)', lineHeight: 1.5, fontSize: '0.92rem' }}>
+                O sistema permite visualizar a planta fabril com a demarcação das áreas e equipamentos, sinalizando claramente onde existem intervenções ativas de manutenção e prevenindo acidentes de trabalho com fontes de energia perigosa.
+              </p>
+            </div>
+
+            <div style={{ padding: 14, background: '#1c2836', borderRadius: 8, border: '1px solid #2d3f54' }}>
+              <h4 style={{ margin: '0 0 10px', color: '#38bdf8', fontSize: '0.95rem' }}>Créditos do Projeto</h4>
+              <div style={{ marginBottom: 12 }}>
+                <strong style={{ display: 'block', color: '#fff', fontSize: '0.92rem' }}>Idealizado por:</strong>
+                <span style={{ color: '#cbd5e1', fontSize: '0.9rem' }}>Hadmilton de Melos Cordeiro</span>
+                <small style={{ display: 'block', color: '#94a3b8', marginTop: 2 }}>Coordenador de Manutenção Mecânica / Supervisor de Estágio</small>
+              </div>
+              <div>
+                <strong style={{ display: 'block', color: '#fff', fontSize: '0.92rem' }}>Desenvolvimento e implementação:</strong>
+                <span style={{ color: '#cbd5e1', fontSize: '0.9rem' }}>Rodrigo Lopes Chaves de Aguiar</span>
+                <small style={{ display: 'block', color: '#94a3b8', marginTop: 2 }}>Estagiário de Engenharia de Software</small>
+              </div>
+            </div>
+
+            <button type="button" className="btn primary" onClick={() => setAboutOpen(false)} style={{ alignSelf: 'flex-end' }}>
+              Fechar
+            </button>
+          </div>
+        </Modal>
+      )}
     </main>
   );
 }

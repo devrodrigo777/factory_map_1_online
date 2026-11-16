@@ -305,6 +305,17 @@ app.use('/api', syncRouter);
 
 app.use('/api', (_req, _res, next) => next(httpError(404, 'Rota não encontrada.')));
 
+app.get('/easylototo-skill.md', (_req, res) => {
+  const p = path.resolve(here, '../../easylototo-skill.md');
+  if (fs.existsSync(p)) return res.download(p, 'easylototo-skill.md');
+  res.status(404).end();
+});
+app.get('/Manual_de_Uso_EasyLOTOTO_for_Knauf.pdf', (_req, res) => {
+  const p = path.resolve(here, '../../Manual_de_Uso_EasyLOTOTO_for_Knauf.pdf');
+  if (fs.existsSync(p)) return res.download(p, 'Manual_de_Uso_EasyLOTOTO_for_Knauf.pdf');
+  res.status(404).end();
+});
+
 // ---------- arquivos estáticos ----------
 app.use('/uploads', uploadsGuard, express.static(UPLOAD_DIR, { maxAge: '365d', immutable: true }));
 

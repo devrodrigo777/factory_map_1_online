@@ -14,6 +14,7 @@ import Records from './pages/Records.jsx';
 import ImportPage from './pages/ImportPage.jsx';
 import Fields from './pages/Fields.jsx';
 import Companies from './pages/Companies.jsx';
+import ManualPage from './pages/ManualPage.jsx';
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
           <AuthProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/manual" element={<ManualPage />} />
             <Route path="/" element={<Protected publicOk><Viewer /></Protected>} />
             <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
             <Route path="/records" element={<Protected><Records /></Protected>} />
