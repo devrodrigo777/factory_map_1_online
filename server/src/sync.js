@@ -3,7 +3,7 @@ import zlib from 'node:zlib';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
-import { db, UPLOAD_DIR } from './db.js';
+import { db, masterDb, UPLOAD_DIR } from './db.js';
 import { runBackup } from './backup.js';
 import { audit, verifyPassword } from './auth.js';
 import { invalidate } from './store.js';
@@ -21,16 +21,14 @@ setInterval(() => {
   }
 }, 60000).unref();
 
-const insertCache = new Map();
 function insertRows(table, list) {
   if (!Array.isArray(list) || !list.length) return;
   const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
   for (const r of list) {
     const ks = cols.filter((c) => c in r);
     if (!ks.length) continue;
-    const sql = `INSERT INTO ${table} (${ks.map((k) => `"${k}"`).join(',')}) VALUES (${ks.map(() => '?').join(',')})`;
-    if (!insertCache.has(sql)) insertCache.set(sql, db.prepare(sql));
-    insertCache.get(sql).run(ks.map((k) => r[k]));
+    const sql = `INSERT OR REPLACE INTO ${table} (${ks.map((k) => `"${k}"`).join(',')}) VALUES (${ks.map(() => '?').join(',')})`;
+    db.prepare(sql).run(ks.map((k) => r[k]));
   }
 }
 
@@ -146,11 +144,15 @@ router.post('/sync/apply', wrap(async (req, res) => {
   if (!password) throw httpError(400, 'Informe sua senha de administrador para autorizar a sincronização.');
   if (!rawCode || typeof rawCode !== 'string') throw httpError(400, 'Código de sincronização não fornecido.');
 
-  // Confirma a senha do usuário logado
-  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
+  // Confirma a senha do usuário logado (busca no masterDb no ambiente online)
+  const u = masterDb.prepare('SELECT * FROM users WHERE id = ?').get(req.user.id);
   if (!u || !verifyPassword(password, u.password_hash)) {
     audit(req.user.username, 'Tentativa de sincronização com senha incorreta');
     throw httpError(401, 'Senha de confirmação incorreta. Digite sua senha de administrador.');
+  }
+
+  if (req.user.role !== 'admin' && req.user.role !== 'globaladmin') {
+    throw httpError(403, 'Apenas administradores podem aplicar pacotes de sincronização.');
   }
 
   let code = rawCode.trim();

@@ -173,6 +173,9 @@ const tenantMigrations = [
 
 function migrateTenantDb(tDb) {
   tDb.exec(tenantMigrations[0]);
+  try {
+    tDb.pragma('user_version = 1');
+  } catch {}
   const fCount = tDb.prepare('SELECT COUNT(*) AS c FROM fields').get().c;
   if (fCount === 0) {
     tDb.prepare(`

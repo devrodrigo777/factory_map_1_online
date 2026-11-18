@@ -969,25 +969,37 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
 .camera-status-panel {
   width: 100%; margin-top: 14px;
 }
+.camera-sync-progress-compact {
+  background: #0f1a29; border: 1px solid #1e3148; border-radius: 8px; padding: 10px 14px;
+}
 .camera-progress-info {
-  display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 6px;
+  display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; margin-bottom: 8px;
+}
+.camera-progress-label {
+  display: flex; align-items: center; gap: 7px; color: #94a3b8; font-weight: 500;
+}
+.pulse-indicator {
+  width: 8px; height: 8px; border-radius: 50%; background: #38bdf8;
+  box-shadow: 0 0 8px #38bdf8;
+  animation: pulse-dot 1.2s infinite ease-in-out;
+}
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.75); }
+}
+.camera-progress-badge {
+  color: #38bdf8; font-size: 0.95rem; font-weight: 700;
+}
+.camera-progress-sub {
+  color: #64748b; font-size: 0.8rem; font-weight: 500; margin-left: 2px;
 }
 .camera-progress-bar {
-  width: 100%; height: 6px; background: #162436; border-radius: 3px; overflow: hidden;
+  width: 100%; height: 8px; background: #162436; border-radius: 4px; overflow: hidden;
 }
 .camera-progress-fill {
   height: 100%; background: linear-gradient(90deg, #0284c7, #38bdf8);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
   transition: width 0.15s ease-out;
-}
-.camera-fragment-dots {
-  display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; justify-content: center;
-}
-.fragment-dot {
-  width: 10px; height: 10px; border-radius: 2px; background: #1f3044;
-  border: 1px solid #29415c; transition: all 0.2s;
-}
-.fragment-dot.received {
-  background: #38bdf8; border-color: #7dd3fc; box-shadow: 0 0 6px rgba(56, 189, 248, 0.5);
 }
 
 .camera-error-box {

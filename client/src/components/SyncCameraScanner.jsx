@@ -258,25 +258,20 @@ export default function SyncCameraScanner({ isOpen, onClose, onScan }) {
           {!cameraError && (
             <div className="camera-status-panel">
               {totalParts > 1 ? (
-                <div>
+                <div className="camera-sync-progress-compact">
                   <div className="camera-progress-info">
-                    <span>Lendo fluxo contínuo:</span>
-                    <strong>{collectedCount} de {totalParts} quadros ({progressPercent}%)</strong>
+                    <span className="camera-progress-label">
+                      <span className="pulse-indicator" /> Lendo fluxo contínuo:
+                    </span>
+                    <strong className="camera-progress-badge">
+                      {progressPercent}% <span className="camera-progress-sub">({collectedCount} de {totalParts} quadros)</span>
+                    </strong>
                   </div>
                   <div className="camera-progress-bar">
                     <div
                       className="camera-progress-fill"
                       style={{ width: `${progressPercent}%` }}
                     />
-                  </div>
-                  <div className="camera-fragment-dots">
-                    {Array.from({ length: totalParts }).map((_, i) => (
-                      <span
-                        key={i}
-                        className={`fragment-dot ${collectedParts[i + 1] ? 'received' : ''}`}
-                        title={`Quadro ${i + 1}`}
-                      />
-                    ))}
                   </div>
                 </div>
               ) : (

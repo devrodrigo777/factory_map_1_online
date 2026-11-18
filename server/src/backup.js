@@ -25,7 +25,14 @@ export const getBackupDir = () => {
 };
 export const BACKUP_DIR = path.join(DATA_DIR, 'backups');
 const NAME_RE = /^[\w.-]+\.zip$/;
-const SCHEMA = () => db.pragma('user_version', { simple: true });
+const SCHEMA = () => {
+  try {
+    const v = Number(db.pragma('user_version', { simple: true }));
+    return Number.isFinite(v) && v > 0 ? v : 1;
+  } catch {
+    return 1;
+  }
+};
 
 const FULL_TABLES = ['maps', 'areas', 'fields', 'imports', 'records', 'kpis', 'settings', 'import_profiles'];
 const DELETE_ORDER = ['records', 'imports', 'areas', 'maps', 'fields', 'kpis', 'settings', 'import_profiles'];
@@ -120,7 +127,9 @@ async function readBackup(buffer) {
   let manifest, data;
   try { manifest = JSON.parse(strFromU8(files['manifest.json'])); data = JSON.parse(strFromU8(files['data.json'])); } catch { throw httpError(400, 'Backup corrompido.'); }
   if (manifest.app !== 'factory-map' || !['data', 'full'].includes(manifest.type)) throw httpError(400, 'O arquivo não parece um backup deste sistema.');
-  if (manifest.schema > SCHEMA()) throw httpError(400, 'Este backup foi feito por uma versão mais nova do sistema. Atualize o sistema antes de restaurar.');
+  const currentSchema = Math.max(1, SCHEMA());
+  const backupSchema = Number(manifest.schema) || 1;
+  if (backupSchema > currentSchema) throw httpError(400, 'Este backup foi feito por uma versão mais nova do sistema. Atualize o sistema antes de restaurar.');
   return { files, manifest, data };
 }
 
@@ -133,15 +142,13 @@ function loadInput(req) {
 }
 
 // ---------- restauração ----------
-const insertCache = new Map();
 function insertRows(table, list) {
   const cols = db.prepare(`PRAGMA table_info(${table})`).all().map((c) => c.name);
   for (const r of list) {
     const ks = cols.filter((c) => c in r);
     if (!ks.length) continue;
-    const sql = `INSERT INTO ${table} (${ks.map((k) => `"${k}"`).join(',')}) VALUES (${ks.map(() => '?').join(',')})`;
-    if (!insertCache.has(sql)) insertCache.set(sql, db.prepare(sql));
-    insertCache.get(sql).run(ks.map((k) => r[k]));
+    const sql = `INSERT OR REPLACE INTO ${table} (${ks.map((k) => `"${k}"`).join(',')}) VALUES (${ks.map(() => '?').join(',')})`;
+    db.prepare(sql).run(ks.map((k) => r[k]));
   }
 }
 
@@ -156,8 +163,20 @@ function restoreFull({ files, data }) {
     if (data.users) {
       masterDb.prepare('DELETE FROM users WHERE company_id = ?').run(cid);
       for (const u of data.users) {
-        masterDb.prepare('INSERT INTO users (username, name, password_hash, role, company_id, active) VALUES (?, ?, ?, ?, ?, ?)')
-          .run(u.username, u.name, u.password_hash, u.role === 'globaladmin' ? 'admin' : (u.role || 'viewer'), cid, u.active ?? 1);
+        const role = u.role === 'globaladmin' ? 'admin' : (u.role || 'viewer');
+        const existing = masterDb.prepare('SELECT id, role, company_id FROM users WHERE username = ? COLLATE NOCASE').get(u.username);
+        if (existing) {
+          if (existing.role === 'globaladmin') {
+            masterDb.prepare('UPDATE users SET name = ?, password_hash = ? WHERE id = ?')
+              .run(u.name, u.password_hash, existing.id);
+          } else {
+            masterDb.prepare('UPDATE users SET name = ?, password_hash = ?, role = ?, company_id = ?, active = ? WHERE id = ?')
+              .run(u.name, u.password_hash, role, cid, u.active ?? 1, existing.id);
+          }
+        } else {
+          masterDb.prepare('INSERT INTO users (username, name, password_hash, role, company_id, active) VALUES (?, ?, ?, ?, ?, ?)')
+            .run(u.username, u.name, u.password_hash, role, cid, u.active ?? 1);
+        }
       }
     }
   })();
