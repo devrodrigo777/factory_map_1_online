@@ -18,7 +18,7 @@ function LockMarker({ x, y, k, count, label, color, onOpen }) {
   return (
     <g
       className="lock-marker"
-      style={{ '--lock': color }}
+      style={{ '--lock': color, outline: 'none' }}
       transform={`translate(${x} ${y}) scale(${1 / k})`}
       role="button"
       tabIndex={0}
@@ -56,6 +56,7 @@ export default function Viewer() {
   const [fullscreen, setFullscreen] = useState(false);
   const [locks, setLocks] = useState(null); // { areas: {id: {active}}, active_total, at }
   const [panel, setPanel] = useState(null); // { areaId, history }
+  const [highlightAreaId, setHighlightAreaId] = useState(null);
 
   // Busca (e guarda em cache) a planta + a imagem já baixada.
   const fetchMap = useCallback((id) => {
@@ -203,6 +204,7 @@ export default function Viewer() {
 
   const showLockPanel = (area, history = false) => {
     setSelected(null);
+    setHighlightAreaId(area.id);
     setPanel({ areaId: area.id, history });
   };
 
@@ -210,7 +212,8 @@ export default function Viewer() {
     <>
       {map.areas.map((a) => {
         const [cx, cy] = centroid(a.points, map.width, map.height);
-        const cls = `area${a.target_map_id ? ' has-target' : ''}${selected?.id === a.id ? ' is-selected' : ''}`;
+        const isLockHighlight = (panel?.areaId === a.id) || (highlightAreaId === a.id);
+        const cls = `area${a.target_map_id ? ' has-target' : ''}${selected?.id === a.id ? ' is-selected' : ''}${isLockHighlight ? ' is-lock-highlight' : ''}`;
         return (
           <g
             key={a.id}
@@ -302,7 +305,7 @@ export default function Viewer() {
           intro={intro}
           overlay={overlay}
           className={phase === 'leaving' ? 'is-leaving' : phase === 'zooming' ? 'is-zooming' : ''}
-          onTap={() => setSelected(null)}
+          onTap={() => { setSelected(null); setHighlightAreaId(null); }}
         />
 
         {locks?.stages?.length > 1 && locks.active_total > 0 && (
@@ -313,7 +316,7 @@ export default function Viewer() {
 
         {selected && (
           <aside className="info" key={selected.id}>
-            <button className="btn icon ghost info-close" onClick={() => setSelected(null)} aria-label="Fechar">
+            <button className="btn icon ghost info-close" onClick={() => { setSelected(null); setHighlightAreaId(null); }} aria-label="Fechar">
               <Icon name="close" />
             </button>
             <span className="swatch" style={{ background: selected.color }} />
@@ -328,7 +331,7 @@ export default function Viewer() {
 
         {panel && (
           <RecordsPanel key={panel.areaId} areaId={panel.areaId} initialHistory={panel.history} stages={locks?.stages ?? []}
-            refreshKey={locks?.at} onClose={() => setPanel(null)} />
+            refreshKey={locks?.at} onClose={() => { setPanel(null); setHighlightAreaId(null); }} />
         )}
       </main>
 

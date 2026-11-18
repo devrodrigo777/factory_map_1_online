@@ -53,6 +53,7 @@ export default function ImportPage() {
   const [profileId, setProfileId] = useState('');
   const [profileName, setProfileName] = useState('');
   const [info, setInfo] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const loadHistory = useCallback(() => api.listImports().then(setHistory).catch(() => {}), []);
   const loadProfiles = useCallback(() => api.listProfiles().then(setProfiles).catch(() => {}), []);
@@ -105,13 +106,47 @@ export default function ImportPage() {
     try { await api.deleteProfile(p.id); await loadProfiles(); choose_profile(preview, file, null, false); } catch (err) { toast(err.message, 'error'); }
   };
 
-  const onFile = async (e) => {
-    const f = e.target.files?.[0];
-    e.target.value = '';
+  const processFile = async (f) => {
     if (!f) return;
+    if (!/\.(xlsx|xlsm)$/i.test(f.name)) {
+      toast('Envie um arquivo Excel (.xlsx ou .xlsm).', 'warn');
+      return;
+    }
     setBusy(true);
     setResult(null);
-    try { initMapping(await api.importPreview(f), f); } catch (err) { toast(err.message, 'error'); } finally { setBusy(false); }
+    try {
+      initMapping(await api.importPreview(f), f);
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const onFile = (e) => {
+    const f = e.target.files?.[0];
+    e.target.value = '';
+    processFile(f);
+  };
+
+  const onDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!dragOver) setDragOver(true);
+  };
+
+  const onDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+  };
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(false);
+    const f = e.dataTransfer?.files?.[0];
+    if (f) processFile(f);
   };
 
   const changeSheet = async (sheet) => {
@@ -158,16 +193,36 @@ export default function ImportPage() {
   return (
     <Shell title="Importar Excel">
       <div className="page narrow">
-        <section className="card">
+        <section
+          className={`card file-dropzone ${dragOver ? 'is-dragover' : ''}`}
+          onDragOver={onDragOver}
+          onDragEnter={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+        >
           <h2>1. Escolha a planilha</h2>
           <p className="muted">
             A importação <strong>acrescenta</strong> as linhas aos registros existentes (nada é substituído).
             Arquivos <code>.xlsx</code>; a primeira linha deve conter os nomes das colunas.
           </p>
           <input ref={fileRef} type="file" hidden accept=".xlsx,.xlsm" onChange={onFile} />
-          <div className="row">
-            <button className="btn primary" onClick={() => fileRef.current.click()} disabled={busy}><Icon name="upload" /> {busy ? 'Lendo…' : 'Escolher arquivo .xlsx'}</button>
-            {file && <span className="muted">{file.name}</span>}
+
+          <div className="dropzone-area" onClick={() => fileRef.current.click()}>
+            <div className="dropzone-icon">
+              <Icon name="upload" size={32} />
+            </div>
+            <div className="dropzone-text">
+              <strong>Arraste e solte o arquivo Excel (.xlsx) aqui</strong>
+              <span className="muted">ou clique para selecionar do seu computador</span>
+            </div>
+            {busy && <div className="spinner" />}
+          </div>
+
+          <div className="row" style={{ marginTop: 12 }}>
+            <button className="btn primary" onClick={() => fileRef.current.click()} disabled={busy}>
+              <Icon name="upload" /> {busy ? 'Lendo…' : 'Escolher arquivo .xlsx'}
+            </button>
+            {file && <span className="muted" style={{ fontWeight: 600, color: '#38bdf8' }}>📄 {file.name}</span>}
           </div>
         </section>
 

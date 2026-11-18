@@ -32,6 +32,7 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [name, setName] = useState('');
+  const [imageEffect, setImageEffect] = useState('none');
   const [fields, setFields] = useState([]);
 
   // Histórico de Desfazer/Refazer (Ctrl+Z / Ctrl+Y)
@@ -102,6 +103,7 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
       const m = await api.getMap(mapId);
       setMap(m);
       setName(m.name);
+      setImageEffect(m.image_effect || 'none');
       const withU = m.areas.map(withUid);
       setAreas(withU);
       initHistory(withU);
@@ -110,6 +112,17 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
       toast(e.message, 'error');
     }
   }, [mapId, clean, toast]);
+
+  const handleEffectChange = async (eff) => {
+    setImageEffect(eff);
+    setMap((prev) => (prev ? { ...prev, image_effect: eff } : prev));
+    try {
+      await api.patchMap(mapId, { image_effect: eff });
+      toast('Efeito visual aplicado à planta.');
+    } catch (e) {
+      toast(e.message, 'error');
+    }
+  };
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { api.listFields().then(setFields).catch(() => {}); }, []);
@@ -645,6 +658,45 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
                   <button className="btn" onClick={makeRoot} disabled={map.is_root}><Icon name="star" /> {map.is_root ? 'Tela inicial' : 'Definir como inicial'}</button>
                   <button className="btn danger" onClick={deleteMap}><Icon name="trash" /> Excluir</button>
                 </div>
+
+                <div className="map-effect-panel">
+                  <span className="map-effect-title">Efeito na imagem de fundo:</span>
+                  <div className="map-effect-options">
+                    <button
+                      type="button"
+                      className={`btn-effect ${(!imageEffect || imageEffect === 'none') ? 'active' : ''}`}
+                      onClick={() => handleEffectChange('none')}
+                      title="Imagem original"
+                    >
+                      Padrão
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn-effect ${imageEffect === 'grayscale' ? 'active' : ''}`}
+                      onClick={() => handleEffectChange('grayscale')}
+                      title="Converter imagem para Preto e Branco"
+                    >
+                      Preto e Branco
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn-effect ${imageEffect === 'bright' ? 'active' : ''}`}
+                      onClick={() => handleEffectChange('bright')}
+                      title="Aumentar luminosidade (mais clara)"
+                    >
+                      Mais Clara
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn-effect ${imageEffect === 'dark' ? 'active' : ''}`}
+                      onClick={() => handleEffectChange('dark')}
+                      title="Diminuir luminosidade (mais escura)"
+                    >
+                      Mais Escura
+                    </button>
+                  </div>
+                </div>
+
                 <p className="muted">{map.width} × {map.height} px</p>
               </section>
 

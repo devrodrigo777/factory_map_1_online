@@ -1587,3 +1587,162 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
   text-align: center;
   color: var(--muted, #64748b);
 }
+
+/* ==========================================================================
+   Novas Melhorias: Cadeados sem foco, Áreas pulsantes, Efeitos, Dropzone e Marca d'água
+   ========================================================================== */
+
+/* 1. Remoção de contorno de foco nos cadeados */
+.lock-marker,
+.lock-marker:focus,
+.lock-marker:focus-visible,
+.lock-marker:active,
+.lock-marker circle,
+.lock-marker path {
+  outline: none !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 2. Drag & Drop no Importador Excel */
+.card.file-dropzone {
+  transition: border-color 0.2s, background-color 0.2s;
+}
+.card.file-dropzone.is-dragover {
+  border-color: var(--blue, #0284c7) !important;
+  background: rgba(2, 132, 199, 0.05);
+}
+.dropzone-area {
+  margin-top: 14px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 12px;
+  padding: 32px 20px;
+  text-align: center;
+  cursor: pointer;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+.card.file-dropzone.is-dragover .dropzone-area,
+.dropzone-area:hover {
+  border-color: var(--blue, #0284c7);
+  background: #f0f9ff;
+}
+.dropzone-icon {
+  color: var(--blue, #0284c7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dropzone-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.95rem;
+  color: #1e293b;
+}
+.dropzone-text .muted {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+/* 3. Efeitos na imagem de fundo da planta */
+.stage-map-img {
+  transition: filter 0.3s ease;
+}
+.stage-map-img.effect-grayscale {
+  filter: grayscale(100%) contrast(1.08);
+}
+.stage-map-img.effect-bright {
+  filter: brightness(1.35) contrast(0.95);
+}
+.stage-map-img.effect-dark {
+  filter: brightness(0.68) contrast(1.15);
+}
+
+.map-effect-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--bg, #f8fafc);
+  border: 1px solid var(--line, #e2e8f0);
+  border-radius: 8px;
+}
+.map-effect-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.map-effect-options {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+.btn-effect {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  background: #ffffff;
+  border: 1px solid var(--line, #cbd5e1);
+  border-radius: 6px;
+  color: var(--ink, #1e293b);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: center;
+}
+.btn-effect:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+.btn-effect.active {
+  background: var(--blue, #0284c7);
+  color: #ffffff;
+  border-color: var(--blue, #0284c7);
+  box-shadow: 0 1px 3px rgba(2, 132, 199, 0.3);
+}
+
+/* 4. Destaque animado pulsante na área do cadeado selecionado */
+.area.is-lock-highlight polygon {
+  animation: lockAreaPulse 1.4s ease-in-out infinite alternate;
+  stroke: #ffffff !important;
+  stroke-width: 3.5px !important;
+  filter: drop-shadow(0 0 12px var(--c, #3b82f6));
+}
+
+@keyframes lockAreaPulse {
+  0% {
+    fill-opacity: calc(var(--o, 0.45) * 0.35 + 0.12);
+    stroke-opacity: 0.6;
+  }
+  100% {
+    fill-opacity: calc(var(--o, 0.45) * 0.75 + 0.5);
+    stroke-opacity: 1;
+  }
+}
+
+/* 5. Marca d'água no centro inferior */
+.app-watermark {
+  position: fixed;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+  color: #64748b;
+  opacity: 0.45;
+  pointer-events: none;
+  user-select: none;
+  z-index: 999;
+  white-space: nowrap;
+  font-family: inherit;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.7);
+}
+

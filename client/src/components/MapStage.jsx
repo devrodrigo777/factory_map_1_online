@@ -42,7 +42,14 @@ const MapStage = forwardRef(function MapStage(
             transition,
           }}
         >
-          <img src={map.image} width={map.width} height={map.height} alt={map.name} draggable={false} />
+          <img
+            src={map.image}
+            width={map.width}
+            height={map.height}
+            alt={map.name}
+            draggable={false}
+            className={`stage-map-img ${map.image_effect && map.image_effect !== 'none' ? `effect-${map.image_effect}` : ''}`}
+          />
           <svg className="stage-overlay" viewBox={`0 0 ${map.width} ${map.height}`} width={map.width} height={map.height}>
             {overlay?.({ k })}
           </svg>
