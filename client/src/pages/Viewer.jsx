@@ -233,6 +233,9 @@ export default function Viewer() {
   const navEffects = locks?.nav_effects;
   const touchZoomEnabled = navEffects ? navEffects.touch_zoom !== false : true;
   const touchZoomPercent = navEffects?.touch_zoom_percent != null ? Number(navEffects.touch_zoom_percent) : 100;
+  const presZoomPercent = navEffects?.presentation_zoom_percent != null
+    ? Number(navEffects.presentation_zoom_percent)
+    : (navEffects?.touch_zoom_percent != null ? Number(navEffects.touch_zoom_percent) : 100);
   const presButtonEnabled = navEffects ? navEffects.presentation_button !== false : true;
   const presDuration = navEffects?.presentation_time_seconds || 10;
   const [presZoom, setPresZoom] = useState(true);
@@ -276,7 +279,7 @@ export default function Viewer() {
         const margins = isMobile
           ? { right: 0, left: 0, top: 0, bottom: (window.innerHeight || 600) * 0.45 }
           : { right: 380, left: 0, top: 0, bottom: 0 };
-        stageRef.current?.zoomToBox(box, { padding: 0.15, margins, zoomPercent: touchZoomPercent });
+        stageRef.current?.zoomToBox(box, { padding: 0.15, margins, zoomPercent: presZoomPercent });
       } else if (!presZoom) {
         stageRef.current?.fit(true);
       }
@@ -287,7 +290,7 @@ export default function Viewer() {
     }, presDuration * 1000);
 
     return () => clearInterval(timer);
-  }, [presentation, presAreas, presIndex, presDuration, presZoom, touchZoomPercent]);
+  }, [presentation, presAreas, presIndex, presDuration, presZoom, presZoomPercent]);
 
   // Interromper modo apresentação ao interagir com o card/área
   const onPresentationInteract = (area) => {
@@ -510,7 +513,7 @@ export default function Viewer() {
                   const margins = isMobile
                     ? { right: 0, left: 0, top: 0, bottom: (window.innerHeight || 600) * 0.45 }
                     : { right: 380, left: 0, top: 0, bottom: 0 };
-                  stageRef.current?.zoomToBox(box, { padding: 0.15, margins, zoomPercent: touchZoomPercent });
+                  stageRef.current?.zoomToBox(box, { padding: 0.15, margins, zoomPercent: presZoomPercent });
                 }
               }
             }}
@@ -553,20 +556,13 @@ function PresentationPanel({ area, lockCount, durationSeconds = 10, onSelect, zo
 
   const rows = data?.rows ?? [];
   const fields = data?.fields ?? [];
-
   const equipKey = data?.title_key || fields.find((f) => /equip/i.test(f.label))?.key;
-  const equipments = Array.from(new Set(rows.map((r) => r.values[equipKey]).filter(Boolean)));
 
-  const respKey = fields.find((f) => /(respons|execut|operador|emit)/i.test(f.label))?.key;
-  const responsibles = Array.from(new Set(rows.map((r) => r.values[respKey]).filter(Boolean)));
-
-  const dateKey = fields.find((f) => /(data|hor[aá]|bloqueio)/i.test(f.label))?.key;
-  const dates = rows.map((r) => {
-    if (r.t0 != null) return formatDateTime(r.t0);
-    if (dateKey && r.values[dateKey]) return String(r.values[dateKey]);
-    if (r.created_at) return formatDateTime(r.created_at);
-    return null;
-  }).filter(Boolean);
+  const sortedRows = rows.slice().sort((a, b) => {
+    const tA = a.t0 != null ? a.t0 : (a.created_at ? Date.parse(a.created_at) : a.id);
+    const tB = b.t0 != null ? b.t0 : (b.created_at ? Date.parse(b.created_at) : b.id);
+    return tB - tA;
+  });
 
   const pct = Math.min(100, Math.max(0, (timeLeft / durationSeconds) * 100));
 
@@ -602,94 +598,42 @@ function PresentationPanel({ area, lockCount, durationSeconds = 10, onSelect, zo
       </div>
 
       <div className="presentation-body">
-        <div className="pres-metrics-grid">
-          <div className="pres-metric-card">
-            <span className="pres-label">Bloqueios Ativos</span>
-            <span className="pres-value" style={{ color: '#dc2626' }}>
-              {data?.counts?.active ?? lockCount}
-            </span>
-          </div>
-
-          <div className="pres-metric-card">
-            <span className="pres-label">Status da Área</span>
-            <span className="pres-value" style={{ fontSize: 14, color: (data?.counts?.active ?? lockCount) > 0 ? '#b91c1c' : '#059669' }}>
-              {(data?.counts?.active ?? lockCount) > 0 ? 'Bloqueio Ativo' : 'Liberado'}
-            </span>
-          </div>
-
-          <div className="pres-metric-card full-width">
-            <span className="pres-label">Equipamentos Bloqueados</span>
-            <div className="pres-tags">
-              {equipments.length > 0 ? (
-                equipments.map((eq, i) => (
-                  <span key={i} className="pres-tag highlight">{eq}</span>
-                ))
-              ) : (
-                <span className="muted" style={{ fontSize: 13 }}>Nenhum equipamento</span>
-              )}
-            </div>
-          </div>
-
-          <div className="pres-metric-card full-width">
-            <span className="pres-label">Responsáveis pelos Bloqueios</span>
-            <div className="pres-tags">
-              {responsibles.length > 0 ? (
-                responsibles.map((resp, i) => (
-                  <span key={i} className="pres-tag">{resp}</span>
-                ))
-              ) : (
-                <span className="muted" style={{ fontSize: 13 }}>Nenhum responsável informado</span>
-              )}
-            </div>
-          </div>
-
-          <div className="pres-metric-card full-width">
-            <span className="pres-label">Data do Bloqueio</span>
-            <div className="pres-tags">
-              {dates.length > 0 ? (
-                dates.slice(0, 3).map((d, i) => (
-                  <span key={i} className="pres-tag">{d}</span>
-                ))
-              ) : (
-                <span className="muted" style={{ fontSize: 13 }}>—</span>
-              )}
-              {dates.length > 3 && <span className="pres-tag">+{dates.length - 3} mais</span>}
-            </div>
-          </div>
+        <div className="pres-active-banner">
+          <span className="pres-label">Bloqueios Ativos</span>
+          <span className="pres-active-count">
+            {data?.counts?.active ?? lockCount}
+          </span>
         </div>
 
-        {rows.length > 0 && (
-          <div style={{ marginTop: 4 }}>
-            <span className="pres-label" style={{ display: 'block', marginBottom: 6, fontSize: 11.5, fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>
-              Resumo dos Bloqueios ({rows.length})
+        {sortedRows.length > 0 ? (
+          <div className="pres-summary-section">
+            <span className="pres-label pres-summary-title">
+              Resumo dos Bloqueios ({sortedRows.length})
             </span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {rows.slice(0, 3).map((r) => (
-                <div key={r.id} style={{
-                  padding: '7px 10px',
-                  background: '#f8fafc',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: 6,
-                  fontSize: 13,
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}>
-                  <strong style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '65%' }}>
-                    {equipKey ? (r.values[equipKey] || `Reg #${r.id}`) : `Reg #${r.id}`}
-                  </strong>
-                  <span className="badge on" style={{ fontSize: 11 }}>
+            <div className="pres-summary-list">
+              {sortedRows.map((r) => (
+                <div key={r.id} className="pres-summary-item">
+                  <div className="pres-summary-info">
+                    <strong className="pres-summary-name">
+                      {equipKey ? (r.values[equipKey] || `Reg #${r.id}`) : `Reg #${r.id}`}
+                    </strong>
+                    {(r.t0 != null || r.created_at) && (
+                      <small className="pres-summary-date">
+                        {formatDateTime(r.t0 != null ? r.t0 : r.created_at)}
+                      </small>
+                    )}
+                  </div>
+                  <span className="badge on pres-summary-badge">
                     {formatHours(r.hours)}
                   </span>
                 </div>
               ))}
-              {rows.length > 3 && (
-                <small className="muted" style={{ textAlign: 'center', marginTop: 2 }}>
-                  +{rows.length - 3} outros bloqueios ativos
-                </small>
-              )}
             </div>
           </div>
+        ) : (
+          <p className="muted" style={{ textAlign: 'center', margin: '24px 0', fontSize: 13 }}>
+            Nenhum bloqueio ativo nesta área.
+          </p>
         )}
       </div>
 

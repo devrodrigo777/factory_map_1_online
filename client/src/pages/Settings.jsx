@@ -155,6 +155,7 @@ function NavigationEffectsCard({ cfg = {}, onSave }) {
     presentation_button: cfg.presentation_button !== undefined ? !!cfg.presentation_button : true,
     presentation_time_seconds: cfg.presentation_time_seconds || 10,
     presentation_zoom: cfg.presentation_zoom !== undefined ? !!cfg.presentation_zoom : true,
+    presentation_zoom_percent: cfg.presentation_zoom_percent !== undefined ? Number(cfg.presentation_zoom_percent) : 100,
   });
 
   useEffect(() => {
@@ -164,6 +165,7 @@ function NavigationEffectsCard({ cfg = {}, onSave }) {
       presentation_button: cfg.presentation_button !== undefined ? !!cfg.presentation_button : true,
       presentation_time_seconds: cfg.presentation_time_seconds || 10,
       presentation_zoom: cfg.presentation_zoom !== undefined ? !!cfg.presentation_zoom : true,
+      presentation_zoom_percent: cfg.presentation_zoom_percent !== undefined ? Number(cfg.presentation_zoom_percent) : 100,
     });
   }, [cfg]);
 
@@ -174,6 +176,7 @@ function NavigationEffectsCard({ cfg = {}, onSave }) {
     presentation_button: cfg.presentation_button !== undefined ? !!cfg.presentation_button : true,
     presentation_time_seconds: cfg.presentation_time_seconds || 10,
     presentation_zoom: cfg.presentation_zoom !== undefined ? !!cfg.presentation_zoom : true,
+    presentation_zoom_percent: cfg.presentation_zoom_percent !== undefined ? Number(cfg.presentation_zoom_percent) : 100,
   });
 
   return (
@@ -262,6 +265,21 @@ function NavigationEffectsCard({ cfg = {}, onSave }) {
                 </small>
               </span>
             </label>
+
+            {c.presentation_zoom && (
+              <label className="field inline" style={{ marginTop: 8, marginLeft: 24 }}>
+                Aproximação do zoom no modo apresentação (%):
+                <input
+                  className="narrow-input"
+                  type="number"
+                  min="10"
+                  max="200"
+                  step="5"
+                  value={c.presentation_zoom_percent ?? 100}
+                  onChange={(e) => set({ presentation_zoom_percent: Math.max(10, Math.min(200, Number(e.target.value) || 100)) })}
+                />
+              </label>
+            )}
           </fieldset>
         )}
       </div>

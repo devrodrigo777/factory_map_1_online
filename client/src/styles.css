@@ -2079,56 +2079,80 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
   flex-direction: column;
   gap: 14px;
 }
-.pres-metrics-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-.pres-metric-card {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
+.pres-active-banner {
+  background: #fef2f2;
+  border: 1px solid #fee2e2;
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.pres-active-banner .pres-label {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #991b1b;
+}
+.pres-active-count {
+  font-size: 26px;
+  font-weight: 800;
+  color: #dc2626;
+  line-height: 1;
+}
+.pres-summary-section {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
+  flex: 1;
 }
-.pres-metric-card.full-width {
-  grid-column: 1 / -1;
-}
-.pres-metric-card .pres-label {
+.pres-summary-title {
   font-size: 11.5px;
   font-weight: 600;
+  color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #64748b;
 }
-.pres-metric-card .pres-value {
-  font-size: 17px;
-  font-weight: 700;
-  color: #0f172a;
-}
-.pres-tags {
+.pres-summary-list {
   display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 2px;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 380px;
+  overflow-y: auto;
 }
-.pres-tag {
-  background: #e2e8f0;
-  color: #334155;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: 6px;
-  max-width: 100%;
+.pres-summary-item {
+  padding: 8px 12px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.pres-summary-info {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.pres-summary-name {
+  display: block;
+  font-size: 13px;
+  color: #0f172a;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.pres-tag.highlight {
-  background: #dbeafe;
-  color: #1e40af;
+.pres-summary-date {
+  display: block;
+  font-size: 11.5px;
+  color: #64748b;
+  margin-top: 2px;
+}
+.pres-summary-badge {
+  font-size: 11.5px;
+  flex-shrink: 0;
 }
 .presentation-footer {
   padding: 10px 18px;

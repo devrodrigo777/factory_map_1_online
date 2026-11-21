@@ -215,6 +215,7 @@ function cleanConfig(b) {
       presentation_button: x.presentation_button !== undefined ? !!x.presentation_button : true,
       presentation_time_seconds: Math.round(clampNum(x.presentation_time_seconds, 2, 600, 10)),
       presentation_zoom: x.presentation_zoom !== undefined ? !!x.presentation_zoom : true,
+      presentation_zoom_percent: Math.round(clampNum(x.presentation_zoom_percent, 10, 200, 100)),
     };
   }
   if (b.backup) {
