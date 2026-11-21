@@ -403,7 +403,8 @@ router.get('/maps/:id/lock-status', (req, res) => {
       out[a.id] = { active: 0, error: e.message };
     }
   }
-  res.json({ areas: out, active_total: act.length, at: now, stages: getConfig().lock_stages });
+  const cfg = getConfig();
+  res.json({ areas: out, active_total: act.length, at: now, stages: cfg.lock_stages, nav_effects: cfg.nav_effects });
 });
 
 // Registros que pertencem à área (ativos; ou todo o histórico com ?history=1).
@@ -417,20 +418,41 @@ router.get('/areas/:id/records', (req, res) => {
   try { matched = matchedForArea(st, area); } catch (e) { error = e.message; }
   const history = req.query.history === '1';
   const activeCount = matched.filter((r) => isActive(st, r)).length;
-  const rows = (history ? matched : matched.filter((r) => isActive(st, r))).slice().sort((a, b) => (b.t0 ?? -Infinity) - (a.t0 ?? -Infinity));
+  const getTime = (r) => (r.t0 != null ? r.t0 : (r.created_at ? Date.parse(r.created_at) : r.id));
+  const rows = (history ? matched : matched.filter((r) => isActive(st, r)))
+    .slice()
+    .sort((a, b) => getTime(b) - getTime(a));
 
-  const wanted = parseKeys(area.display_fields).filter((k) => ctx.fields.some((f) => f.key === k));
-  const fields = (wanted.length ? wanted.map((k) => ctx.fields.find((f) => f.key === k)) : ctx.fields.filter((f) => f.visible))
-    .map((f) => ({ key: f.key, label: f.label, type: f.type }));
+  const parsed = parseKeys(area.display_fields);
+  const wanted = parsed.filter((k) => k === '__separator__' || ctx.fields.some((f) => f.key === k));
+  const fields = (wanted.length
+    ? wanted.map((k) => k === '__separator__'
+        ? { key: '__separator__', label: 'Separador', type: 'separator' }
+        : ctx.fields.find((f) => f.key === k))
+    : ctx.fields.filter((f) => f.visible)
+  ).map((f) => ({ key: f.key, label: f.label, type: f.type }));
+
+  const realFields = fields.filter((f) => f.key !== '__separator__');
+  const titleKey = ctx.role.equipment && realFields.some((f) => f.key === ctx.role.equipment)
+    ? ctx.role.equipment
+    : realFields[0]?.key;
+
   res.json({
     area: { id: area.id, name: area.name, code: area.code },
     fields,
-    title_key: ctx.role.equipment && fields.some((f) => f.key === ctx.role.equipment) ? ctx.role.equipment : fields[0]?.key,
+    title_key: titleKey,
     counts: { active: activeCount, total: matched.length },
     error,
     rows: rows.slice(0, 300).map((r) => {
       const v = valuesFor(st, r);
-      return { id: r.id, active: isActive(st, r), hours: hoursOf(st, r, now), values: Object.fromEntries(fields.map((f) => [f.key, v[f.key]])) };
+      return {
+        id: r.id,
+        active: isActive(st, r),
+        hours: hoursOf(st, r, now),
+        t0: r.t0,
+        created_at: r.created_at,
+        values: Object.fromEntries(realFields.map((f) => [f.key, v[f.key]]))
+      };
     }),
   });
 });

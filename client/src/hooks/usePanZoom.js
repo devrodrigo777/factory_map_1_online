@@ -66,14 +66,23 @@ export default function usePanZoom({ width, height, onTap, onHover }) {
     return { k, x: (cw - width * k) / 2, y: (ch - height * k) / 2 };
   };
 
-  const boxView = (box, padding = 0.12) => {
+  const boxView = (box, padding = 0.12, margins = null) => {
     const { w: cw, h: ch } = size.current;
+    const mLeft = margins?.left || 0;
+    const mRight = margins?.right || 0;
+    const mTop = margins?.top || 0;
+    const mBottom = margins?.bottom || 0;
+    const availW = Math.max(cw - mLeft - mRight, 100);
+    const availH = Math.max(ch - mTop - mBottom, 100);
+
     const bw = Math.max((box.x1 - box.x0) * width, 1);
     const bh = Math.max((box.y1 - box.y0) * height, 1);
-    const k = clampK(Math.min(cw / (bw * (1 + padding * 2)), ch / (bh * (1 + padding * 2))));
+    const k = clampK(Math.min(availW / (bw * (1 + padding * 2)), availH / (bh * (1 + padding * 2))));
     const cx = ((box.x0 + box.x1) / 2) * width;
     const cy = ((box.y0 + box.y1) / 2) * height;
-    return { k, x: cw / 2 - cx * k, y: ch / 2 - cy * k };
+    const targetCenterX = mLeft + availW / 2;
+    const targetCenterY = mTop + availH / 2;
+    return { k, x: targetCenterX - cx * k, y: targetCenterY - cy * k };
   };
 
   const toLocal = (cx, cy) => {
@@ -89,11 +98,11 @@ export default function usePanZoom({ width, height, onTap, onHover }) {
   }, []);
 
   // Animação suave até uma visão; a promessa resolve quando termina.
-  const glide = useCallback((v) => {
+  const glide = useCallback((v, raw = false) => {
     cancelGlide(true);
     interacted.current = true;
     const instant = reduceMotion();
-    apply(clampView(v), instant ? 'none' : 'smooth');
+    apply(raw ? v : clampView(v), instant ? 'none' : 'smooth');
     return new Promise((resolve) => {
       glideResolveRef.current = resolve;
       timer.current = setTimeout(() => {
@@ -120,7 +129,10 @@ export default function usePanZoom({ width, height, onTap, onHover }) {
     interacted.current = false;
   }, [measure, glide]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const zoomToBox = useCallback((box, { padding = 0.12 } = {}) => glide(boxView(box, padding)), [glide]); // eslint-disable-line react-hooks/exhaustive-deps
+  const zoomToBox = useCallback((box, { padding = 0.12, margins = null } = {}) => {
+    measure();
+    return glide(boxView(box, padding, margins), !!margins);
+  }, [glide, measure]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const zoomBy = useCallback((factor) => {
     const { w, h } = size.current;

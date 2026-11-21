@@ -127,7 +127,7 @@ export function validateExpr(src) {
   if (String(src ?? '').trim()) buildCtx().compile(src);
 }
 
-// ---------- configurações (cores do cadeado, backup e importação automáticos) ----------
+// ---------- configurações (cores do cadeado, backup e importação automáticos, efeitos de navegação) ----------
 export const DEFAULT_CONFIG = {
   lock_stages: [
     { min_hours: 0, color: '#2B5C8F', label: 'Recente' },
@@ -136,6 +136,11 @@ export const DEFAULT_CONFIG = {
     { min_hours: 168, color: '#A32020', label: 'Mais de 7 dias' },
   ],
   recurrence_days: 7,
+  nav_effects: {
+    touch_zoom: true,
+    presentation_button: true,
+    presentation_time_seconds: 10,
+  },
   backup: { enabled: true, mode: 'daily', time: '02:00', every_hours: 6, type: 'full', include_users: true, keep: 5, copy_to: '' },
   import: { enabled: false, folder: '', interval_s: 60, profile_id: null, after: 'move', min_match: 0.6, check_on_login: false },
 };
@@ -145,6 +150,7 @@ export function getConfig() {
   try { saved = JSON.parse(getSetting('config') || '{}'); } catch { /* usa padrão */ }
   return {
     ...DEFAULT_CONFIG, ...saved,
+    nav_effects: { ...DEFAULT_CONFIG.nav_effects, ...(saved.nav_effects ?? {}) },
     backup: { ...DEFAULT_CONFIG.backup, ...(saved.backup ?? {}) },
     import: { ...DEFAULT_CONFIG.import, ...(saved.import ?? {}) },
   };

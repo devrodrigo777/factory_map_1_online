@@ -36,6 +36,11 @@ const paths = {
   info: 'M12 16v-4m0-4h.01M22 12A10 10 0 1 1 2 12a10 10 0 0 1 20 0z',
   search: 'M21 21l-4.35-4.35M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z',
   qr: 'M4 4h4v4H4zm12 0h4v4h-4zm-12 12h4v4H4zm12 4h4v-4h-4zm0-8h1v2h-1zm3 0h1v2h-1zm-3 3h2v2h-2zm3 3h1v2h-1zm-3 2h1v1h-1zM4 9v2h2V9zm7-5v7h2V4zm-2 9h2v2H9zm2 3h2v2h-2zm-2 2h2v2H9z',
+  chevronDown: 'M6 9l6 6 6-6',
+  chevronUp: 'M18 15l-6-6-6 6',
+  arrowUp: 'M12 19V5M5 12l7-7 7 7',
+  arrowDown: 'M12 5v14M19 12l-7 7-7-7',
+  grip: 'M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01',
 };
 
 export default function Icon({ name, size = 20 }) {

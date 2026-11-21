@@ -1746,3 +1746,352 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.7);
 }
 
+/* ---------- Reordenação de campos e separador no editor ---------- */
+.display-fields-config {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px 14px;
+  margin-top: 10px;
+  background: var(--panel);
+}
+.display-fields-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.display-fields-header .reset-btn {
+  font-size: 12px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+.display-fields-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 380px;
+  overflow-y: auto;
+}
+.field-order-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+.field-order-item:hover {
+  border-color: #cbd5e1;
+}
+.field-order-item.is-dragging {
+  opacity: 0.4;
+  border-style: dashed;
+}
+.field-order-item.is-unchecked {
+  opacity: 0.6;
+  background: #f8fafc;
+}
+.field-order-handle {
+  cursor: grab;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+.field-order-handle:active {
+  cursor: grabbing;
+}
+.field-order-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  margin: 0;
+}
+.field-order-label {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.field-order-actions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+.field-order-actions .btn.small {
+  padding: 2px 4px;
+  min-height: 26px;
+  min-width: 26px;
+}
+
+/* Item separador no editor */
+.separator-item {
+  border-left: 4px solid var(--blue);
+  background: #f0f7ff;
+}
+.separator-item.sep-inactive {
+  border-left-color: #94a3b8;
+  background: #f8fafc;
+}
+.separator-item.sep-active {
+  border-left-color: #2563eb;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+.field-order-content {
+  flex: 1;
+  min-width: 0;
+}
+.field-order-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.field-order-title strong {
+  font-size: 13.5px;
+  color: #1e293b;
+}
+.field-order-hint {
+  display: block;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 1px;
+  line-height: 1.25;
+}
+
+/* ---------- Divisor com botão colapsar/expandir no card do cadeado ---------- */
+.card-sep-container {
+  grid-column: 1 / -1;
+  margin: 8px 0 4px;
+}
+.card-sep-btn {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 8px;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  cursor: pointer;
+  color: var(--blue, #2563eb);
+  font-size: 12.5px;
+  font-weight: 600;
+  transition: color 0.15s;
+}
+.card-sep-btn:hover {
+  color: #1d4ed8;
+}
+.card-sep-line {
+  flex: 1;
+  height: 1px;
+  background: #cbd5e1;
+}
+.card-sep-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  background: #f1f5f9;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+}
+.card-sep-text svg {
+  transition: transform 0.2s ease;
+}
+
+/* ---------- Botão e painel de modo apresentação ---------- */
+.presentation-btn-active {
+  background: #dc2626 !important;
+  color: #fff !important;
+  box-shadow: 0 0 10px rgba(220, 38, 38, 0.5) !important;
+  animation: presBtnPulse 1.8s infinite;
+}
+@keyframes presBtnPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+.presentation-panel {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  bottom: 14px;
+  width: min(420px, calc(100% - 28px));
+  z-index: 4;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(8px);
+  border: 2px solid #3b82f6;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.3);
+  animation: panel-in 340ms var(--ease) backwards;
+  cursor: pointer;
+  user-select: none;
+  overflow: hidden;
+}
+.presentation-panel:hover {
+  border-color: #2563eb;
+  box-shadow: 0 20px 48px rgba(37, 99, 235, 0.25);
+}
+.presentation-top {
+  padding: 14px 18px 10px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+.presentation-badge-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.presentation-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid #fca5a5;
+}
+.presentation-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #dc2626;
+  animation: presPulseDot 1.2s infinite;
+}
+@keyframes presPulseDot {
+  0% { opacity: 0.4; }
+  50% { opacity: 1; }
+  100% { opacity: 0.4; }
+}
+.presentation-timer-text {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 600;
+}
+.presentation-progress-bar {
+  width: 100%;
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+.presentation-progress-fill {
+  height: 100%;
+  background: #2563eb;
+  transition: width 0.1s linear;
+}
+.presentation-title {
+  margin: 6px 0 2px;
+  font-size: 20px;
+  color: #0f172a;
+}
+.presentation-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.pres-metrics-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.pres-metric-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.pres-metric-card.full-width {
+  grid-column: 1 / -1;
+}
+.pres-metric-card .pres-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+.pres-metric-card .pres-value {
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
+}
+.pres-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+.pres-tag {
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pres-tag.highlight {
+  background: #dbeafe;
+  color: #1e40af;
+}
+.presentation-footer {
+  padding: 10px 18px;
+  background: #f1f5f9;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #2563eb;
+}
+.presentation-footer svg {
+  color: #2563eb;
+}
+
+@media (max-width: 640px) {
+  .presentation-panel {
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: auto;
+    max-height: 62%;
+    border-radius: 16px 16px 0 0;
+    animation-name: sheet-in;
+  }
+}
+
+

@@ -207,6 +207,14 @@ function cleanConfig(b) {
     out.lock_stages[0].min_hours = 0; // a primeira faixa cobre os bloqueios mais novos
   }
   if ('recurrence_days' in b) out.recurrence_days = clampNum(b.recurrence_days, 1, 365, 7);
+  if (b.nav_effects) {
+    const x = b.nav_effects;
+    out.nav_effects = {
+      touch_zoom: x.touch_zoom !== undefined ? !!x.touch_zoom : true,
+      presentation_button: x.presentation_button !== undefined ? !!x.presentation_button : true,
+      presentation_time_seconds: Math.round(clampNum(x.presentation_time_seconds, 2, 600, 10)),
+    };
+  }
   if (b.backup) {
     const x = b.backup;
     const c = {

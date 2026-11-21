@@ -26,6 +26,7 @@ export default function Settings() {
   return (
     <Shell title="Configurações">
       <div className="page narrow">
+        <NavigationEffectsCard cfg={config.nav_effects} onSave={(v) => save('nav_effects', v, 'Efeitos de navegação salvos.')} />
         <LockColors cfg={config} onSave={(stages, days) => api.saveConfig({ lock_stages: stages, recurrence_days: days }).then((r) => { setData((d) => ({ ...d, ...r })); toast('Cores e reincidência salvas.'); }).catch(fail)} />
         <BackupCard cfg={config.backup} status={data.backup} onSave={(v) => save('backup', v, 'Backup automático salvo.')}
           onRun={async () => { try { const r = await api.runBackupJob(); setData((d) => ({ ...d, ...r })); toast('Backup executado.'); } catch (e) { fail(e); } }} />
@@ -141,6 +142,85 @@ function BackupCard({ cfg, status, onSave, onRun }) {
       <div className="row">
         <button className="btn primary" disabled={!dirty} onClick={() => onSave(c)}>Salvar</button>
         <button className="btn" disabled={busy || status.running} onClick={async () => { setBusy(true); await onRun(); setBusy(false); }}>{busy || status.running ? 'Executando…' : 'Fazer backup agora'}</button>
+      </div>
+    </section>
+  );
+}
+
+// ---------- efeitos de navegação ----------
+function NavigationEffectsCard({ cfg = {}, onSave }) {
+  const [c, setC] = useState({
+    touch_zoom: cfg.touch_zoom !== undefined ? !!cfg.touch_zoom : true,
+    presentation_button: cfg.presentation_button !== undefined ? !!cfg.presentation_button : true,
+    presentation_time_seconds: cfg.presentation_time_seconds || 10,
+  });
+  const set = (patch) => setC((prev) => ({ ...prev, ...patch }));
+  const dirty = JSON.stringify(c) !== JSON.stringify({
+    touch_zoom: cfg.touch_zoom !== undefined ? !!cfg.touch_zoom : true,
+    presentation_button: cfg.presentation_button !== undefined ? !!cfg.presentation_button : true,
+    presentation_time_seconds: cfg.presentation_time_seconds || 10,
+  });
+
+  return (
+    <section className="card">
+      <h2>Efeitos de navegação</h2>
+      <p className="muted">
+        Configure o comportamento dinâmico de aproximação por toque e o modo de apresentação automática.
+      </p>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 12 }}>
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={c.touch_zoom}
+            onChange={(e) => set({ touch_zoom: e.target.checked })}
+          />
+          <span>
+            <strong>Efeito dinâmico por toque</strong>
+            <small className="muted" style={{ display: 'block', marginTop: 2 }}>
+              Ao clicar em um cadeado, aproxima (zoom) na área correspondente e a centraliza no espaço disponível fora do modal. Ao fechar o modal ou tocar na área, o zoom retorna ao enquadramento geral da planta.
+            </small>
+          </span>
+        </label>
+
+        <label className="check">
+          <input
+            type="checkbox"
+            checked={c.presentation_button}
+            onChange={(e) => set({ presentation_button: e.target.checked })}
+          />
+          <span>
+            <strong>Botão Modo Apresentação</strong>
+            <small className="muted" style={{ display: 'block', marginTop: 2 }}>
+              Exibe um botão com ícone de play no menu superior (ao lado do botão de tela cheia). Ao clicar, o mapa entra em modo de apresentação e destaca automaticamente cada área bloqueada.
+            </small>
+          </span>
+        </label>
+
+        {c.presentation_button && (
+          <fieldset className="cfg-group" style={{ marginTop: 4 }}>
+            <label className="field inline">
+              Tempo de exibição de cada área (segundos):
+              <input
+                className="narrow-input"
+                type="number"
+                min="3"
+                max="300"
+                value={c.presentation_time_seconds}
+                onChange={(e) => set({ presentation_time_seconds: Math.max(2, Math.min(600, Number(e.target.value) || 10)) })}
+              />
+            </label>
+            <small className="muted">
+              Tempo em que cada área bloqueada permanece destacada com suas métricas compactadas antes de alternar para a próxima área (padrão 10 s).
+            </small>
+          </fieldset>
+        )}
+      </div>
+
+      <div className="row" style={{ marginTop: 16 }}>
+        <button className="btn primary" disabled={!dirty} onClick={() => onSave(c)}>
+          Salvar
+        </button>
       </div>
     </section>
   );

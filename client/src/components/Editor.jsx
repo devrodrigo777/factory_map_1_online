@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import MapStage from './MapStage.jsx';
 import Icon from './Icons.jsx';
@@ -796,21 +796,11 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
                       />
                       <small>Área macro: filtre só pelo setor. Área de detalhe: setor e equipamento.</small>
                     </div>
-                    <fieldset className="cols-pick">
-                      <legend>Informações mostradas ao clicar no cadeado</legend>
-                      <small>Nenhuma marcada = todos os campos exibidos.</small>
-                      {fields.map((f) => (
-                        <label key={f.key} className="check compact">
-                          <input type="checkbox" checked={selArea.display_fields.includes(f.key)}
-                            onChange={(e) => patchArea(selArea.uid, {
-                              display_fields: e.target.checked
-                                ? fields.filter((x) => x.key === f.key || selArea.display_fields.includes(x.key)).map((x) => x.key)
-                                : selArea.display_fields.filter((k) => k !== f.key),
-                            })} />
-                          {f.label}{f.computed ? ' ƒ' : ''}
-                        </label>
-                      ))}
-                    </fieldset>
+                    <DisplayFieldsConfig
+                      fields={fields}
+                      value={selArea.display_fields}
+                      onChange={(cols) => patchArea(selArea.uid, { display_fields: cols })}
+                    />
                   </>
                 )}
               </section>
@@ -838,40 +828,203 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
               </section>
 
               <section className="panel">
-                <h2>Informações mostradas ao clicar no cadeado</h2>
-                <small className="muted">Nenhuma marcada = todos os campos exibidos.</small>
-                <fieldset className="cols-pick" style={{ marginTop: 8 }}>
-                  {fields.map((f) => {
-                    const allHave = selectedAreas.every((a) => a.display_fields.includes(f.key));
-                    return (
-                      <label key={f.key} className="check compact">
-                        <input
-                          type="checkbox"
-                          checked={allHave}
-                          onChange={(e) => {
-                            const checked = e.target.checked;
-                            const next = areas.map((a) => {
-                              if (!selectedUids.includes(a.uid)) return a;
-                              const nextCols = checked
-                                ? fields.filter((x) => x.key === f.key || a.display_fields.includes(x.key)).map((x) => x.key)
-                                : a.display_fields.filter((k) => k !== f.key);
-                              return { ...a, display_fields: nextCols };
-                            });
-                            setAreas(next);
-                            pushHistory(next);
-                            mark();
-                          }}
-                        />
-                        {f.label}{f.computed ? ' ƒ' : ''}
-                      </label>
-                    );
-                  })}
-                </fieldset>
+                <DisplayFieldsConfig
+                  fields={fields}
+                  value={selectedAreas[0]?.display_fields || []}
+                  onChange={(cols) => {
+                    const next = areas.map((a) => {
+                      if (!selectedUids.includes(a.uid)) return a;
+                      return { ...a, display_fields: cols };
+                    });
+                    setAreas(next);
+                    pushHistory(next);
+                    mark();
+                  }}
+                />
               </section>
             </>
           )}
         </aside>
       </div>
     </div>
+  );
+}
+
+function DisplayFieldsConfig({ fields, value = [], onChange }) {
+  const [dragIdx, setDragIdx] = useState(null);
+
+  const items = useMemo(() => {
+    const map = new Map(fields.map((f) => [f.key, f]));
+    const list = [];
+    const seen = new Set();
+
+    if (Array.isArray(value) && value.length > 0) {
+      for (const k of value) {
+        if (k === '__separator__') {
+          list.push({ key: '__separator__', label: 'Separador', isSeparator: true, checked: true });
+          seen.add('__separator__');
+        } else if (map.has(k)) {
+          const f = map.get(k);
+          list.push({ key: f.key, label: f.label, computed: f.computed, isSeparator: false, checked: true });
+          seen.add(k);
+        }
+      }
+      for (const f of fields) {
+        if (!seen.has(f.key)) {
+          list.push({ key: f.key, label: f.label, computed: f.computed, isSeparator: false, checked: false });
+        }
+      }
+      if (!seen.has('__separator__')) {
+        list.push({ key: '__separator__', label: 'Separador', isSeparator: true, checked: true });
+      }
+    } else {
+      for (const f of fields) {
+        list.push({ key: f.key, label: f.label, computed: f.computed, isSeparator: false, checked: true });
+      }
+      list.push({ key: '__separator__', label: 'Separador', isSeparator: true, checked: true });
+    }
+
+    return list;
+  }, [fields, value]);
+
+  const emit = (newItems) => {
+    const keys = newItems.filter((it) => it.isSeparator || it.checked).map((it) => it.key);
+    onChange(keys);
+  };
+
+  const move = (fromIdx, toIdx) => {
+    if (fromIdx < 0 || fromIdx >= items.length || toIdx < 0 || toIdx >= items.length || fromIdx === toIdx) return;
+    const next = [...items];
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    emit(next);
+  };
+
+  const toggleCheck = (idx) => {
+    const next = items.map((it, i) => (i === idx ? { ...it, checked: !it.checked } : it));
+    emit(next);
+  };
+
+  const resetDefault = () => {
+    const keys = fields.map((f) => f.key);
+    keys.push('__separator__');
+    onChange(keys);
+  };
+
+  const activeItems = items.filter((it) => it.isSeparator || it.checked);
+  const sepActiveIdx = activeItems.findIndex((it) => it.isSeparator);
+  const isSepAtEnd = sepActiveIdx === activeItems.length - 1;
+
+  return (
+    <fieldset className="display-fields-config">
+      <legend>Informações mostradas ao clicar no cadeado</legend>
+      <div className="display-fields-header">
+        <small className="muted">Ordene os itens ou use as setas. Mova o Separador para cima para ativá-lo.</small>
+        <button type="button" className="btn ghost small reset-btn" onClick={resetDefault} title="Restaurar lista e ordem padrão">
+          Padrão
+        </button>
+      </div>
+
+      <ul className="display-fields-list">
+        {items.map((it, idx) => {
+          if (it.isSeparator) {
+            return (
+              <li
+                key="__separator__"
+                className={`field-order-item separator-item ${isSepAtEnd ? 'sep-inactive' : 'sep-active'} ${dragIdx === idx ? 'is-dragging' : ''}`}
+                draggable
+                onDragStart={() => setDragIdx(idx)}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={() => { move(dragIdx, idx); setDragIdx(null); }}
+                onDragEnd={() => setDragIdx(null)}
+              >
+                <div className="field-order-handle" title="Arrastar para reordenar">
+                  <Icon name="grip" size={15} />
+                </div>
+                <div className="field-order-content">
+                  <div className="field-order-title">
+                    <strong>Separador</strong>
+                    <span className={`badge ${isSepAtEnd ? 'off' : 'on'}`}>
+                      {isSepAtEnd ? 'Inativo no final' : 'Ativo'}
+                    </span>
+                  </div>
+                  <small className="field-order-hint">
+                    {isSepAtEnd
+                      ? 'Posicionado no final (inativo). Mova para cima para colapsar informações.'
+                      : 'Itens abaixo ficarão colapsados com botão para expandir.'}
+                  </small>
+                </div>
+                <div className="field-order-actions">
+                  <button
+                    type="button"
+                    className="btn icon ghost small"
+                    disabled={idx === 0}
+                    onClick={() => move(idx, idx - 1)}
+                    title="Mover para cima"
+                  >
+                    <Icon name="arrowUp" size={13} />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn icon ghost small"
+                    disabled={idx === items.length - 1}
+                    onClick={() => move(idx, idx + 1)}
+                    title="Mover para baixo"
+                  >
+                    <Icon name="arrowDown" size={13} />
+                  </button>
+                </div>
+              </li>
+            );
+          }
+
+          return (
+            <li
+              key={it.key}
+              className={`field-order-item ${!it.checked ? 'is-unchecked' : ''} ${dragIdx === idx ? 'is-dragging' : ''}`}
+              draggable
+              onDragStart={() => setDragIdx(idx)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => { move(dragIdx, idx); setDragIdx(null); }}
+              onDragEnd={() => setDragIdx(null)}
+            >
+              <div className="field-order-handle" title="Arrastar para reordenar">
+                <Icon name="grip" size={15} />
+              </div>
+              <label className="field-order-check">
+                <input
+                  type="checkbox"
+                  checked={it.checked}
+                  onChange={() => toggleCheck(idx)}
+                />
+                <span className="field-order-label">
+                  {it.label}{it.computed ? ' ƒ' : ''}
+                </span>
+              </label>
+              <div className="field-order-actions">
+                <button
+                  type="button"
+                  className="btn icon ghost small"
+                  disabled={idx === 0}
+                  onClick={() => move(idx, idx - 1)}
+                  title="Mover para cima"
+                >
+                  <Icon name="arrowUp" size={13} />
+                </button>
+                <button
+                  type="button"
+                  className="btn icon ghost small"
+                  disabled={idx === items.length - 1}
+                  onClick={() => move(idx, idx + 1)}
+                  title="Mover para baixo"
+                >
+                  <Icon name="arrowDown" size={13} />
+                </button>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </fieldset>
   );
 }
