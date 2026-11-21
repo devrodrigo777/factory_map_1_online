@@ -126,28 +126,22 @@ export default function RecordsPanel({ areaId, refreshKey, initialHistory = fals
               </header>
               <dl>
                 {primaryFields.map((f) => renderField(f, r))}
-                {hasActiveSeparator && (
-                  <div className="card-sep-container">
-                    <button
-                      type="button"
-                      className="card-sep-btn"
-                      onClick={() => toggleCardExpand(r.id)}
-                      title={isExpanded ? 'Contrair informações' : 'Expandir mais informações'}
-                      aria-expanded={isExpanded}
-                    >
-                      <span className="card-sep-line" />
-                      <span className="card-sep-text">
-                        <span>{isExpanded ? 'Ocultar detalhes' : 'Mais detalhes'}</span>
-                        <Icon name={isExpanded ? 'chevronUp' : 'chevronDown'} size={14} />
-                      </span>
-                      <span className="card-sep-line" />
-                    </button>
-                  </div>
-                )}
                 {hasActiveSeparator && isExpanded && (
                   collapsedFields.map((f) => renderField(f, r))
                 )}
               </dl>
+              {hasActiveSeparator && (
+                <button
+                  type="button"
+                  className="lock-card-toggle-btn"
+                  onClick={() => toggleCardExpand(r.id)}
+                  title={isExpanded ? 'Contrair informações' : 'Expandir mais informações'}
+                  aria-expanded={isExpanded}
+                  aria-label={isExpanded ? 'Contrair informações' : 'Expandir mais informações'}
+                >
+                  <Icon name={isExpanded ? 'chevronUp' : 'chevronDown'} size={18} />
+                </button>
+              )}
             </article>
           );
         })}

@@ -852,6 +852,7 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
 
 function DisplayFieldsConfig({ fields, value = [], onChange }) {
   const [dragIdx, setDragIdx] = useState(null);
+  const [dragOverIdx, setDragOverIdx] = useState(null);
 
   const items = useMemo(() => {
     const map = new Map(fields.map((f) => [f.key, f]));
@@ -916,8 +917,8 @@ function DisplayFieldsConfig({ fields, value = [], onChange }) {
   const isSepAtEnd = sepActiveIdx === activeItems.length - 1;
 
   return (
-    <fieldset className="display-fields-config">
-      <legend>Informações mostradas ao clicar no cadeado</legend>
+    <div className="display-fields-config">
+      <div className="display-fields-title">Informações mostradas ao clicar no cadeado</div>
       <div className="display-fields-header">
         <small className="muted">Ordene os itens ou use as setas. Mova o Separador para cima para ativá-lo.</small>
         <button type="button" className="btn ghost small reset-btn" onClick={resetDefault} title="Restaurar lista e ordem padrão">
@@ -925,35 +926,143 @@ function DisplayFieldsConfig({ fields, value = [], onChange }) {
         </button>
       </div>
 
-      <ul className="display-fields-list">
+      <ul
+        className="display-fields-list"
+        onDragLeave={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) {
+            setDragOverIdx(null);
+          }
+        }}
+      >
         {items.map((it, idx) => {
+          const isTarget = dragOverIdx === idx && dragIdx !== null && dragIdx !== idx;
+          const showPlaceholderBefore = isTarget && idx < dragIdx;
+          const showPlaceholderAfter = isTarget && idx > dragIdx;
+
+          const placeholderEl = (
+            <li
+              key={`placeholder-${idx}`}
+              className="field-order-placeholder"
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+              }}
+              onDrop={() => {
+                move(dragIdx, idx);
+                setDragIdx(null);
+                setDragOverIdx(null);
+              }}
+            >
+              <span>Posicionar aqui</span>
+            </li>
+          );
+
           if (it.isSeparator) {
             return (
+              <React.Fragment key="__separator__">
+                {showPlaceholderBefore && placeholderEl}
+                <li
+                  className={`field-order-item separator-item ${isSepAtEnd ? 'sep-inactive' : 'sep-active'} ${dragIdx === idx ? 'is-dragging' : ''} ${isTarget ? 'is-drop-target' : ''}`}
+                  draggable
+                  onDragStart={(e) => {
+                    setDragIdx(idx);
+                    e.dataTransfer.effectAllowed = 'move';
+                  }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    if (dragOverIdx !== idx) setDragOverIdx(idx);
+                  }}
+                  onDrop={() => {
+                    move(dragIdx, idx);
+                    setDragIdx(null);
+                    setDragOverIdx(null);
+                  }}
+                  onDragEnd={() => {
+                    setDragIdx(null);
+                    setDragOverIdx(null);
+                  }}
+                >
+                  <div className="field-order-handle" title="Arrastar para reordenar">
+                    <Icon name="grip" size={15} />
+                  </div>
+                  <div className="field-order-content">
+                    <div className="field-order-title">
+                      <strong>Separador</strong>
+                      <span className={`badge ${isSepAtEnd ? 'off' : 'on'}`}>
+                        {isSepAtEnd ? 'Inativo no final' : 'Ativo'}
+                      </span>
+                    </div>
+                    <small className="field-order-hint">
+                      {isSepAtEnd
+                        ? 'No final (inativo). Mova para cima para colapsar itens.'
+                        : 'Itens abaixo ficarão colapsados com botão para expandir.'}
+                    </small>
+                  </div>
+                  <div className="field-order-actions">
+                    <button
+                      type="button"
+                      className="btn icon ghost small"
+                      disabled={idx === 0}
+                      onClick={() => move(idx, idx - 1)}
+                      title="Mover para cima"
+                    >
+                      <Icon name="arrowUp" size={13} />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn icon ghost small"
+                      disabled={idx === items.length - 1}
+                      onClick={() => move(idx, idx + 1)}
+                      title="Mover para baixo"
+                    >
+                      <Icon name="arrowDown" size={13} />
+                    </button>
+                  </div>
+                </li>
+                {showPlaceholderAfter && placeholderEl}
+              </React.Fragment>
+            );
+          }
+
+          return (
+            <React.Fragment key={it.key}>
+              {showPlaceholderBefore && placeholderEl}
               <li
-                key="__separator__"
-                className={`field-order-item separator-item ${isSepAtEnd ? 'sep-inactive' : 'sep-active'} ${dragIdx === idx ? 'is-dragging' : ''}`}
+                className={`field-order-item ${!it.checked ? 'is-unchecked' : ''} ${dragIdx === idx ? 'is-dragging' : ''} ${isTarget ? 'is-drop-target' : ''}`}
                 draggable
-                onDragStart={() => setDragIdx(idx)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => { move(dragIdx, idx); setDragIdx(null); }}
-                onDragEnd={() => setDragIdx(null)}
+                onDragStart={(e) => {
+                  setDragIdx(idx);
+                  e.dataTransfer.effectAllowed = 'move';
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (dragOverIdx !== idx) setDragOverIdx(idx);
+                }}
+                onDrop={() => {
+                  move(dragIdx, idx);
+                  setDragIdx(null);
+                  setDragOverIdx(null);
+                }}
+                onDragEnd={() => {
+                  setDragIdx(null);
+                  setDragOverIdx(null);
+                }}
               >
                 <div className="field-order-handle" title="Arrastar para reordenar">
                   <Icon name="grip" size={15} />
                 </div>
-                <div className="field-order-content">
-                  <div className="field-order-title">
-                    <strong>Separador</strong>
-                    <span className={`badge ${isSepAtEnd ? 'off' : 'on'}`}>
-                      {isSepAtEnd ? 'Inativo no final' : 'Ativo'}
-                    </span>
-                  </div>
-                  <small className="field-order-hint">
-                    {isSepAtEnd
-                      ? 'Posicionado no final (inativo). Mova para cima para colapsar informações.'
-                      : 'Itens abaixo ficarão colapsados com botão para expandir.'}
-                  </small>
-                </div>
+                <label className="field-order-check">
+                  <input
+                    type="checkbox"
+                    checked={it.checked}
+                    onChange={() => toggleCheck(idx)}
+                  />
+                  <span className="field-order-label">
+                    {it.label}{it.computed ? ' ƒ' : ''}
+                  </span>
+                </label>
                 <div className="field-order-actions">
                   <button
                     type="button"
@@ -975,56 +1084,11 @@ function DisplayFieldsConfig({ fields, value = [], onChange }) {
                   </button>
                 </div>
               </li>
-            );
-          }
-
-          return (
-            <li
-              key={it.key}
-              className={`field-order-item ${!it.checked ? 'is-unchecked' : ''} ${dragIdx === idx ? 'is-dragging' : ''}`}
-              draggable
-              onDragStart={() => setDragIdx(idx)}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={() => { move(dragIdx, idx); setDragIdx(null); }}
-              onDragEnd={() => setDragIdx(null)}
-            >
-              <div className="field-order-handle" title="Arrastar para reordenar">
-                <Icon name="grip" size={15} />
-              </div>
-              <label className="field-order-check">
-                <input
-                  type="checkbox"
-                  checked={it.checked}
-                  onChange={() => toggleCheck(idx)}
-                />
-                <span className="field-order-label">
-                  {it.label}{it.computed ? ' ƒ' : ''}
-                </span>
-              </label>
-              <div className="field-order-actions">
-                <button
-                  type="button"
-                  className="btn icon ghost small"
-                  disabled={idx === 0}
-                  onClick={() => move(idx, idx - 1)}
-                  title="Mover para cima"
-                >
-                  <Icon name="arrowUp" size={13} />
-                </button>
-                <button
-                  type="button"
-                  className="btn icon ghost small"
-                  disabled={idx === items.length - 1}
-                  onClick={() => move(idx, idx + 1)}
-                  title="Mover para baixo"
-                >
-                  <Icon name="arrowDown" size={13} />
-                </button>
-              </div>
-            </li>
+              {showPlaceholderAfter && placeholderEl}
+            </React.Fragment>
           );
         })}
       </ul>
-    </fieldset>
+    </div>
   );
 }

@@ -211,6 +211,7 @@ function cleanConfig(b) {
     const x = b.nav_effects;
     out.nav_effects = {
       touch_zoom: x.touch_zoom !== undefined ? !!x.touch_zoom : true,
+      touch_zoom_percent: Math.round(clampNum(x.touch_zoom_percent, 10, 200, 100)),
       presentation_button: x.presentation_button !== undefined ? !!x.presentation_button : true,
       presentation_time_seconds: Math.round(clampNum(x.presentation_time_seconds, 2, 600, 10)),
     };

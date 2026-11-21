@@ -66,7 +66,7 @@ export default function usePanZoom({ width, height, onTap, onHover }) {
     return { k, x: (cw - width * k) / 2, y: (ch - height * k) / 2 };
   };
 
-  const boxView = (box, padding = 0.12, margins = null) => {
+  const boxView = (box, padding = 0.12, margins = null, zoomPercent = 100) => {
     const { w: cw, h: ch } = size.current;
     const mLeft = margins?.left || 0;
     const mRight = margins?.right || 0;
@@ -77,7 +77,11 @@ export default function usePanZoom({ width, height, onTap, onHover }) {
 
     const bw = Math.max((box.x1 - box.x0) * width, 1);
     const bh = Math.max((box.y1 - box.y0) * height, 1);
-    const k = clampK(Math.min(availW / (bw * (1 + padding * 2)), availH / (bh * (1 + padding * 2))));
+    const targetK = Math.min(availW / (bw * (1 + padding * 2)), availH / (bh * (1 + padding * 2)));
+    const baseK = fitK.current || 1;
+    const pct = Math.max(0.05, Math.min(3, (Number(zoomPercent) || 100) / 100));
+    const effectiveK = targetK > baseK ? baseK + (targetK - baseK) * pct : targetK;
+    const k = clampK(effectiveK);
     const cx = ((box.x0 + box.x1) / 2) * width;
     const cy = ((box.y0 + box.y1) / 2) * height;
     const targetCenterX = mLeft + availW / 2;
@@ -129,9 +133,9 @@ export default function usePanZoom({ width, height, onTap, onHover }) {
     interacted.current = false;
   }, [measure, glide]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const zoomToBox = useCallback((box, { padding = 0.12, margins = null } = {}) => {
+  const zoomToBox = useCallback((box, { padding = 0.12, margins = null, zoomPercent = 100 } = {}) => {
     measure();
-    return glide(boxView(box, padding, margins), !!margins);
+    return glide(boxView(box, padding, margins, zoomPercent), !!margins);
   }, [glide, measure]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const zoomBy = useCallback((factor) => {

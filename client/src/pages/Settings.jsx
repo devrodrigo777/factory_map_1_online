@@ -151,12 +151,24 @@ function BackupCard({ cfg, status, onSave, onRun }) {
 function NavigationEffectsCard({ cfg = {}, onSave }) {
   const [c, setC] = useState({
     touch_zoom: cfg.touch_zoom !== undefined ? !!cfg.touch_zoom : true,
+    touch_zoom_percent: cfg.touch_zoom_percent !== undefined ? Number(cfg.touch_zoom_percent) : 100,
     presentation_button: cfg.presentation_button !== undefined ? !!cfg.presentation_button : true,
     presentation_time_seconds: cfg.presentation_time_seconds || 10,
   });
+
+  useEffect(() => {
+    setC({
+      touch_zoom: cfg.touch_zoom !== undefined ? !!cfg.touch_zoom : true,
+      touch_zoom_percent: cfg.touch_zoom_percent !== undefined ? Number(cfg.touch_zoom_percent) : 100,
+      presentation_button: cfg.presentation_button !== undefined ? !!cfg.presentation_button : true,
+      presentation_time_seconds: cfg.presentation_time_seconds || 10,
+    });
+  }, [cfg]);
+
   const set = (patch) => setC((prev) => ({ ...prev, ...patch }));
   const dirty = JSON.stringify(c) !== JSON.stringify({
     touch_zoom: cfg.touch_zoom !== undefined ? !!cfg.touch_zoom : true,
+    touch_zoom_percent: cfg.touch_zoom_percent !== undefined ? Number(cfg.touch_zoom_percent) : 100,
     presentation_button: cfg.presentation_button !== undefined ? !!cfg.presentation_button : true,
     presentation_time_seconds: cfg.presentation_time_seconds || 10,
   });
@@ -183,6 +195,26 @@ function NavigationEffectsCard({ cfg = {}, onSave }) {
           </span>
         </label>
 
+        {c.touch_zoom && (
+          <fieldset className="cfg-group" style={{ marginTop: -4, marginLeft: 24 }}>
+            <label className="field inline">
+              Aproximação do zoom ao selecionar cadeado (%):
+              <input
+                className="narrow-input"
+                type="number"
+                min="10"
+                max="200"
+                step="5"
+                value={c.touch_zoom_percent ?? 100}
+                onChange={(e) => set({ touch_zoom_percent: Math.max(10, Math.min(200, Number(e.target.value) || 100)) })}
+              />
+            </label>
+            <small className="muted">
+              Define a intensidade de aproximação (padrão 100%). Se definido para 50%, aproxima metade do caminho até a área. Também aplicado no modo apresentação.
+            </small>
+          </fieldset>
+        )}
+
         <label className="check">
           <input
             type="checkbox"
@@ -198,7 +230,7 @@ function NavigationEffectsCard({ cfg = {}, onSave }) {
         </label>
 
         {c.presentation_button && (
-          <fieldset className="cfg-group" style={{ marginTop: 4 }}>
+          <fieldset className="cfg-group" style={{ marginTop: -4, marginLeft: 24 }}>
             <label className="field inline">
               Tempo de exibição de cada área (segundos):
               <input

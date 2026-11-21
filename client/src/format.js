@@ -118,8 +118,19 @@ export const ROLE_HELP = {
   globaladmin: 'Super Administrador: gerencia todas as empresas e usuários de todo o sistema.',
 };
 export const formatBytes = (b) => (b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`);
-export const formatDateTime = (s) => {
+export const formatDateTime = (v) => {
+  if (v == null || v === '') return '—';
+  if (typeof v === 'number' || v instanceof Date) {
+    const d = new Date(typeof v === 'number' && v < 1e11 ? v * 1000 : v);
+    return Number.isNaN(d.getTime()) ? String(v) : d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+  }
+  const s = String(v).trim();
   if (!s) return '—';
+  if (/^\d{10,13}$/.test(s)) {
+    const numVal = Number(s);
+    const d = new Date(s.length === 10 ? numVal * 1000 : numVal);
+    return Number.isNaN(d.getTime()) ? s : d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
+  }
   const d = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : `${s.replace(' ', 'T')}Z`); // o SQLite guarda em UTC
   return Number.isNaN(d.getTime()) ? s : d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
 };

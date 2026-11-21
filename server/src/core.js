@@ -138,6 +138,7 @@ export const DEFAULT_CONFIG = {
   recurrence_days: 7,
   nav_effects: {
     touch_zoom: true,
+    touch_zoom_percent: 100,
     presentation_button: true,
     presentation_time_seconds: 10,
   },

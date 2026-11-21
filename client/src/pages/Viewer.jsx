@@ -232,6 +232,7 @@ export default function Viewer() {
   // Configurações de efeitos de navegação
   const navEffects = locks?.nav_effects;
   const touchZoomEnabled = navEffects ? navEffects.touch_zoom !== false : true;
+  const touchZoomPercent = navEffects?.touch_zoom_percent != null ? Number(navEffects.touch_zoom_percent) : 100;
   const presButtonEnabled = navEffects ? navEffects.presentation_button !== false : true;
   const presDuration = navEffects?.presentation_time_seconds || 10;
 
@@ -249,22 +250,31 @@ export default function Viewer() {
       if (selected) setSelected(null);
       setPresIndex(0);
       setPresentation(true);
-      stageRef.current?.fit(true);
     }
   };
 
-  // Timer do modo apresentação para rotacionar entre áreas
+  // Timer do modo apresentação para rotacionar entre áreas e focar em cada uma
   useEffect(() => {
     if (!presentation || presAreas.length === 0) return undefined;
     const current = presAreas[presIndex % presAreas.length];
-    if (current) setHighlightAreaId(current.id);
+    if (current) {
+      setHighlightAreaId(current.id);
+      if (current.points?.length >= 3) {
+        const box = bbox(current.points);
+        const isMobile = typeof window !== 'undefined' && window.innerWidth <= 640;
+        const margins = isMobile
+          ? { right: 0, left: 0, top: 0, bottom: (window.innerHeight || 600) * 0.45 }
+          : { right: 380, left: 0, top: 0, bottom: 0 };
+        stageRef.current?.zoomToBox(box, { padding: 0.15, margins, zoomPercent: touchZoomPercent });
+      }
+    }
 
     const timer = setInterval(() => {
       setPresIndex((i) => (i + 1) % presAreas.length);
     }, presDuration * 1000);
 
     return () => clearInterval(timer);
-  }, [presentation, presAreas, presIndex, presDuration]);
+  }, [presentation, presAreas, presIndex, presDuration, touchZoomPercent]);
 
   // Interromper modo apresentação ao interagir com o card/área
   const onPresentationInteract = (area) => {
@@ -286,7 +296,7 @@ export default function Viewer() {
       const margins = isMobile
         ? { right: 0, left: 0, top: 0, bottom: (window.innerHeight || 600) * 0.55 }
         : { right: 428, left: 0, top: 0, bottom: 0 };
-      stageRef.current?.zoomToBox(box, { padding: 0.15, margins });
+      stageRef.current?.zoomToBox(box, { padding: 0.15, margins, zoomPercent: touchZoomPercent });
     }
   };
 
