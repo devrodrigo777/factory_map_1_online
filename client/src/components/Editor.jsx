@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import MapStage from './MapStage.jsx';
 import Icon from './Icons.jsx';
@@ -959,7 +959,7 @@ function DisplayFieldsConfig({ fields, value = [], onChange }) {
 
           if (it.isSeparator) {
             return (
-              <React.Fragment key="__separator__">
+              <Fragment key="__separator__">
                 {showPlaceholderBefore && placeholderEl}
                 <li
                   className={`field-order-item separator-item ${isSepAtEnd ? 'sep-inactive' : 'sep-active'} ${dragIdx === idx ? 'is-dragging' : ''} ${isTarget ? 'is-drop-target' : ''}`}
@@ -1021,12 +1021,12 @@ function DisplayFieldsConfig({ fields, value = [], onChange }) {
                   </div>
                 </li>
                 {showPlaceholderAfter && placeholderEl}
-              </React.Fragment>
+              </Fragment>
             );
           }
 
           return (
-            <React.Fragment key={it.key}>
+            <Fragment key={it.key}>
               {showPlaceholderBefore && placeholderEl}
               <li
                 className={`field-order-item ${!it.checked ? 'is-unchecked' : ''} ${dragIdx === idx ? 'is-dragging' : ''} ${isTarget ? 'is-drop-target' : ''}`}
@@ -1085,7 +1085,7 @@ function DisplayFieldsConfig({ fields, value = [], onChange }) {
                 </div>
               </li>
               {showPlaceholderAfter && placeholderEl}
-            </React.Fragment>
+            </Fragment>
           );
         })}
       </ul>

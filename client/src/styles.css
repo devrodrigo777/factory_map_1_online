@@ -2039,6 +2039,33 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
   background: #2563eb;
   transition: width 0.1s linear;
 }
+.presentation-controls-row {
+  display: flex;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+}
+.presentation-zoom-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  user-select: none;
+}
+.presentation-zoom-toggle input[type="checkbox"] {
+  cursor: pointer;
+  margin: 0;
+  accent-color: #2563eb;
+  width: 15px;
+  height: 15px;
+}
+.presentation-zoom-toggle:hover {
+  color: #0f172a;
+}
 .presentation-title {
   margin: 6px 0 2px;
   font-size: 20px;

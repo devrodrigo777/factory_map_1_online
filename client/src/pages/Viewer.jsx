@@ -235,6 +235,14 @@ export default function Viewer() {
   const touchZoomPercent = navEffects?.touch_zoom_percent != null ? Number(navEffects.touch_zoom_percent) : 100;
   const presButtonEnabled = navEffects ? navEffects.presentation_button !== false : true;
   const presDuration = navEffects?.presentation_time_seconds || 10;
+  const [presZoom, setPresZoom] = useState(true);
+
+  // Sincroniza presZoom inicial a partir de nav_effects
+  useEffect(() => {
+    if (navEffects?.presentation_zoom !== undefined) {
+      setPresZoom(!!navEffects.presentation_zoom);
+    }
+  }, [navEffects?.presentation_zoom]);
 
   // Lista de áreas para alternar no modo apresentação
   const lockedAreas = (map?.areas || []).filter((a) => (locks?.areas?.[a.id]?.active ?? 0) > 0);
@@ -250,6 +258,9 @@ export default function Viewer() {
       if (selected) setSelected(null);
       setPresIndex(0);
       setPresentation(true);
+      if (!presZoom) {
+        stageRef.current?.fit(true);
+      }
     }
   };
 
@@ -259,13 +270,15 @@ export default function Viewer() {
     const current = presAreas[presIndex % presAreas.length];
     if (current) {
       setHighlightAreaId(current.id);
-      if (current.points?.length >= 3) {
+      if (presZoom && current.points?.length >= 3) {
         const box = bbox(current.points);
         const isMobile = typeof window !== 'undefined' && window.innerWidth <= 640;
         const margins = isMobile
           ? { right: 0, left: 0, top: 0, bottom: (window.innerHeight || 600) * 0.45 }
           : { right: 380, left: 0, top: 0, bottom: 0 };
         stageRef.current?.zoomToBox(box, { padding: 0.15, margins, zoomPercent: touchZoomPercent });
+      } else if (!presZoom) {
+        stageRef.current?.fit(true);
       }
     }
 
@@ -274,7 +287,7 @@ export default function Viewer() {
     }, presDuration * 1000);
 
     return () => clearInterval(timer);
-  }, [presentation, presAreas, presIndex, presDuration, touchZoomPercent]);
+  }, [presentation, presAreas, presIndex, presDuration, presZoom, touchZoomPercent]);
 
   // Interromper modo apresentação ao interagir com o card/área
   const onPresentationInteract = (area) => {
@@ -485,6 +498,22 @@ export default function Viewer() {
             lockCount={locks?.areas?.[currentPresArea.id]?.active ?? 0}
             durationSeconds={presDuration}
             onSelect={() => onPresentationInteract(currentPresArea)}
+            zoomEnabled={presZoom}
+            onToggleZoom={(val) => {
+              setPresZoom(val);
+              if (!val) {
+                stageRef.current?.fit(true);
+              } else {
+                if (currentPresArea?.points?.length >= 3) {
+                  const box = bbox(currentPresArea.points);
+                  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 640;
+                  const margins = isMobile
+                    ? { right: 0, left: 0, top: 0, bottom: (window.innerHeight || 600) * 0.45 }
+                    : { right: 380, left: 0, top: 0, bottom: 0 };
+                  stageRef.current?.zoomToBox(box, { padding: 0.15, margins, zoomPercent: touchZoomPercent });
+                }
+              }
+            }}
           />
         )}
       </main>
@@ -499,7 +528,7 @@ export default function Viewer() {
   );
 }
 
-function PresentationPanel({ area, lockCount, durationSeconds = 10, onSelect }) {
+function PresentationPanel({ area, lockCount, durationSeconds = 10, onSelect, zoomEnabled = true, onToggleZoom }) {
   const [data, setData] = useState(null);
   const [timeLeft, setTimeLeft] = useState(durationSeconds);
 
@@ -558,6 +587,18 @@ function PresentationPanel({ area, lockCount, durationSeconds = 10, onSelect }) 
         <div className="presentation-progress-bar">
           <div className="presentation-progress-fill" style={{ width: `${pct}%` }} />
         </div>
+        {onToggleZoom && (
+          <div className="presentation-controls-row" onClick={(e) => e.stopPropagation()}>
+            <label className="presentation-zoom-toggle" title="Habilitar ou desabilitar zoom dinâmico de foco nas áreas durante a apresentação">
+              <input
+                type="checkbox"
+                checked={zoomEnabled}
+                onChange={(e) => onToggleZoom(e.target.checked)}
+              />
+              <span>Zoom dinâmico de foco nas áreas</span>
+            </label>
+          </div>
+        )}
       </div>
 
       <div className="presentation-body">

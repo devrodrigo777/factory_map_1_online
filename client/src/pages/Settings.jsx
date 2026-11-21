@@ -154,6 +154,7 @@ function NavigationEffectsCard({ cfg = {}, onSave }) {
     touch_zoom_percent: cfg.touch_zoom_percent !== undefined ? Number(cfg.touch_zoom_percent) : 100,
     presentation_button: cfg.presentation_button !== undefined ? !!cfg.presentation_button : true,
     presentation_time_seconds: cfg.presentation_time_seconds || 10,
+    presentation_zoom: cfg.presentation_zoom !== undefined ? !!cfg.presentation_zoom : true,
   });
 
   useEffect(() => {
@@ -162,6 +163,7 @@ function NavigationEffectsCard({ cfg = {}, onSave }) {
       touch_zoom_percent: cfg.touch_zoom_percent !== undefined ? Number(cfg.touch_zoom_percent) : 100,
       presentation_button: cfg.presentation_button !== undefined ? !!cfg.presentation_button : true,
       presentation_time_seconds: cfg.presentation_time_seconds || 10,
+      presentation_zoom: cfg.presentation_zoom !== undefined ? !!cfg.presentation_zoom : true,
     });
   }, [cfg]);
 
@@ -171,6 +173,7 @@ function NavigationEffectsCard({ cfg = {}, onSave }) {
     touch_zoom_percent: cfg.touch_zoom_percent !== undefined ? Number(cfg.touch_zoom_percent) : 100,
     presentation_button: cfg.presentation_button !== undefined ? !!cfg.presentation_button : true,
     presentation_time_seconds: cfg.presentation_time_seconds || 10,
+    presentation_zoom: cfg.presentation_zoom !== undefined ? !!cfg.presentation_zoom : true,
   });
 
   return (
@@ -245,6 +248,20 @@ function NavigationEffectsCard({ cfg = {}, onSave }) {
             <small className="muted">
               Tempo em que cada área bloqueada permanece destacada com suas métricas compactadas antes de alternar para a próxima área (padrão 10 s).
             </small>
+
+            <label className="check" style={{ marginTop: 10 }}>
+              <input
+                type="checkbox"
+                checked={c.presentation_zoom}
+                onChange={(e) => set({ presentation_zoom: e.target.checked })}
+              />
+              <span>
+                <strong>Zoom dinâmico de foco nas áreas</strong>
+                <small className="muted" style={{ display: 'block', marginTop: 2 }}>
+                  Aproxima (zoom) dinamicamente na área em destaque. Se desmarcado, o mapa permanece no enquadramento geral enquanto as áreas se alternam.
+                </small>
+              </span>
+            </label>
           </fieldset>
         )}
       </div>
