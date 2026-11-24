@@ -3,11 +3,13 @@ import { api } from '../api.js';
 import Icon from './Icons.jsx';
 import AreaHistory from './AreaHistory.jsx';
 import Lightbox from './Lightbox.jsx';
+import { useTranslation } from '../i18n/I18nContext.jsx';
 import { formatHours, formatValue, parsePhotoUrls, stageFor } from '../format.js';
 
 // Painel lateral com os bloqueios de uma área (macro: todos os equipamentos do setor;
 // detalhe: o(s) bloqueio(s) daquele equipamento).
 export default function RecordsPanel({ areaId, refreshKey, initialHistory = false, stages = [], onClose }) {
+  const { t } = useTranslation();
   const [tab, setTab] = useState('locks');
   const [history, setHistory] = useState(initialHistory);
   const [data, setData] = useState(null);
@@ -79,22 +81,28 @@ export default function RecordsPanel({ areaId, refreshKey, initialHistory = fals
     <aside className={`records-panel${tab === 'history' ? ' wide' : ''}`} aria-label="Bloqueios da área">
       <header>
         <div>
-          <h2>{data?.area.name || 'Bloqueios'}</h2>
+          <h2>{data?.area.name || t('records_panel.title_default', 'Bloqueios')}</h2>
           {data && (
             <p className="muted">
-              {data.counts.active === 0 ? 'Nenhum bloqueio ativo' : `${data.counts.active} ${data.counts.active === 1 ? 'bloqueio ativo' : 'bloqueios ativos'}`}
-              {data.counts.total > data.counts.active && ` · ${data.counts.total} no histórico`}
+              {data.counts.active === 0
+                ? t('records_panel.no_active_locks', 'Nenhum bloqueio ativo')
+                : (data.counts.active === 1
+                    ? t('records_panel.active_locks_count', { count: 1 })
+                    : t('records_panel.active_locks_count_plural', { count: data.counts.active }))}
+              {data.counts.total > data.counts.active && ` · ${t('records_panel.in_history_suffix', { count: data.counts.total })}`}
             </p>
           )}
         </div>
-        <button className="btn icon ghost" onClick={onClose} aria-label="Fechar"><Icon name="close" /></button>
+        <button className="btn icon ghost" onClick={onClose} aria-label={t('common.close', 'Fechar')}><Icon name="close" /></button>
       </header>
 
       <div className="tabs-mini" role="tablist">
         <button role="tab" aria-selected={tab === 'locks'} className={tab === 'locks' ? 'on' : ''} onClick={() => setTab('locks')}>
-          {data ? `Bloqueados (${history ? (data.rows?.length ?? 0) : (data.counts?.active ?? 0)})` : 'Bloqueados'}
+          {data ? `${t('records_panel.tab_locked', 'Bloqueados')} (${history ? (data.rows?.length ?? 0) : (data.counts?.active ?? 0)})` : t('records_panel.tab_locked', 'Bloqueados')}
         </button>
-        <button role="tab" aria-selected={tab === 'history'} className={tab === 'history' ? 'on' : ''} onClick={() => setTab('history')}>Histórico</button>
+        <button role="tab" aria-selected={tab === 'history'} className={tab === 'history' ? 'on' : ''} onClick={() => setTab('history')}>
+          {t('records_panel.tab_history', 'Histórico')}
+        </button>
       </div>
 
       {tab === 'history' ? (
@@ -103,14 +111,14 @@ export default function RecordsPanel({ areaId, refreshKey, initialHistory = fals
       <>
       <label className="check history-toggle">
         <input type="checkbox" checked={history} onChange={(e) => setHistory(e.target.checked)} />
-        Incluir encerrados
+        {t('records_panel.include_closed', 'Incluir encerrados')}
       </label>
 
       <div className="records-list">
         {error && <p className="expr-test err">{error}</p>}
-        {data?.error && <p className="expr-test err">Filtro da área com erro: {data.error}</p>}
+        {data?.error && <p className="expr-test err">{t('records_panel.area_filter_error', 'Filtro da área com erro')}: {data.error}</p>}
         {data && !data.error && sortedRows.length === 0 && (
-          <p className="muted empty">{history ? 'Nenhum registro para esta área.' : 'Tudo liberado nesta área.'}</p>
+          <p className="muted empty">{history ? t('records_panel.empty_for_area', 'Nenhum registro para esta área.') : t('records_panel.all_clear_area', 'Tudo liberado nesta área.')}</p>
         )}
         {sortedRows.map((r) => {
           const isExpanded = expandedCards.has(r.id);
@@ -121,7 +129,7 @@ export default function RecordsPanel({ areaId, refreshKey, initialHistory = fals
                 <strong>{titleKey ? formatValue('text', r.values[titleKey]) : `Registro ${r.id}`}</strong>
                 <span className={`badge ${r.active ? 'on' : 'off'}`}
                   style={r.active && stages.length ? { background: stageFor(r.hours, stages).color, color: '#fff' } : undefined}>
-                  {r.active ? `Ativo há ${formatHours(r.hours)}` : `Encerrado · ${formatHours(r.hours)}`}
+                  {r.active ? `${t('viewer.active_for', 'Ativo há')} ${formatHours(r.hours)}` : `${t('viewer.closed_badge', 'Encerrado')} · ${formatHours(r.hours)}`}
                 </span>
               </header>
               <dl>
@@ -135,9 +143,9 @@ export default function RecordsPanel({ areaId, refreshKey, initialHistory = fals
                   type="button"
                   className="lock-card-toggle-btn"
                   onClick={() => toggleCardExpand(r.id)}
-                  title={isExpanded ? 'Contrair informações' : 'Expandir mais informações'}
+                  title={isExpanded ? t('records_panel.collapse_info', 'Contrair informações') : t('records_panel.expand_info', 'Expandir mais informações')}
                   aria-expanded={isExpanded}
-                  aria-label={isExpanded ? 'Contrair informações' : 'Expandir mais informações'}
+                  aria-label={isExpanded ? t('records_panel.collapse_info', 'Contrair informações') : t('records_panel.expand_info', 'Expandir mais informações')}
                 >
                   <Icon name={isExpanded ? 'chevronUp' : 'chevronDown'} size={18} />
                 </button>

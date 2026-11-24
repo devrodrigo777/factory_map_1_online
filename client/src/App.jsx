@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { I18nProvider } from './i18n/I18nContext.jsx';
 import { ToastProvider } from './components/Toast.jsx';
 import { ConfirmProvider } from './components/ConfirmModal.jsx';
 import { AuthProvider, Protected } from './components/Auth.jsx';
@@ -19,32 +20,34 @@ import ManualPage from './pages/ManualPage.jsx';
 export default function App() {
   return (
     <BrowserRouter>
-      <ToastProvider>
-        <ConfirmProvider>
-          <AuthProvider>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/manual" element={<ManualPage />} />
-            <Route path="/" element={<Protected publicOk><Viewer /></Protected>} />
-            <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
-            <Route path="/records" element={<Protected><Records /></Protected>} />
-            <Route path="/import" element={<Protected min="operator"><ImportPage /></Protected>} />
-            <Route path="/fields" element={<Protected min="admin"><Fields /></Protected>} />
-            <Route path="/admin" element={<Protected min="admin"><Admin /></Protected>} />
-            <Route path="/reports" element={<Protected><Reports /></Protected>} />
-            <Route path="/settings" element={<Protected min="admin"><Settings /></Protected>} />
-            <Route path="/users" element={<Protected min="admin"><Users /></Protected>} />
-            <Route path="/companies" element={<Protected min="globaladmin"><Companies /></Protected>} />
-            <Route path="/backup" element={<Protected min="admin"><Backup /></Protected>} />
-            <Route path="/:company" element={<Protected publicOk><Viewer /></Protected>} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-          <div className="app-watermark" aria-hidden="true">
-            Desenvolvido e Implementado por Rodrigo Lopes • Estagiário de Engenharia de Software
-          </div>
-          </AuthProvider>
-        </ConfirmProvider>
-      </ToastProvider>
+      <I18nProvider>
+        <ToastProvider>
+          <ConfirmProvider>
+            <AuthProvider>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/manual" element={<ManualPage />} />
+              <Route path="/" element={<Protected publicOk><Viewer /></Protected>} />
+              <Route path="/dashboard" element={<Protected><Dashboard /></Protected>} />
+              <Route path="/records" element={<Protected><Records /></Protected>} />
+              <Route path="/import" element={<Protected min="operator"><ImportPage /></Protected>} />
+              <Route path="/fields" element={<Protected min="admin"><Fields /></Protected>} />
+              <Route path="/admin" element={<Protected min="admin"><Admin /></Protected>} />
+              <Route path="/reports" element={<Protected><Reports /></Protected>} />
+              <Route path="/settings" element={<Protected min="admin"><Settings /></Protected>} />
+              <Route path="/users" element={<Protected min="admin"><Users /></Protected>} />
+              <Route path="/companies" element={<Protected min="globaladmin"><Companies /></Protected>} />
+              <Route path="/backup" element={<Protected min="admin"><Backup /></Protected>} />
+              <Route path="/:company" element={<Protected publicOk><Viewer /></Protected>} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+            <div className="app-watermark" aria-hidden="true">
+              Desenvolvido e Implementado por Rodrigo Lopes • Estagiário de Engenharia de Software
+            </div>
+            </AuthProvider>
+          </ConfirmProvider>
+        </ToastProvider>
+      </I18nProvider>
     </BrowserRouter>
   );
 }

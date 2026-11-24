@@ -41,6 +41,7 @@ const paths = {
   arrowUp: 'M12 19V5M5 12l7-7 7 7',
   arrowDown: 'M12 5v14M19 12l-7 7-7-7',
   grip: 'M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01',
+  sparkles: 'M12 3l1.9 4.8 4.8 1.9-4.8 1.9-1.9 4.8-1.9-4.8L5.3 9.7l4.8-1.9L12 3zm7 13l.9 2.2 2.2.9-2.2.9-.9 2.2-.9-2.2-2.2-.9 2.2-.9.9-2.2z',
 };
 
 export default function Icon({ name, size = 20 }) {

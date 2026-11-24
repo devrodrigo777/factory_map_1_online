@@ -128,7 +128,7 @@ function auditOnFinish(req, res) {
 }
 
 // ---------- quem pode o quê ----------
-const READ_PUBLIC = [/^\/maps(\/|$)/, /^\/areas\/\d+\/(records|history)$/];
+const READ_PUBLIC = [/^\/maps(\/|$)/, /^\/areas\/\d+\/(records|history)$/, /^\/translations(\/|$)/];
 
 function required(req) {
   const p = req.path;
@@ -140,7 +140,7 @@ function required(req) {
   if (p.startsWith('/export')) return 'operator';
   if (/^\/(reports|history)(\/|$)/.test(p)) return 'viewer';
   if (/^\/(records|import|imports|import-profiles)(\/|$)/.test(p)) return read ? 'viewer' : 'operator';
-  if (/^\/(maps|areas|fields|kpis|settings|stats)(\/|$)/.test(p)) return read ? 'viewer' : 'admin';
+  if (/^\/(maps|areas|fields|kpis|settings|stats|translations)(\/|$)/.test(p)) return read ? 'viewer' : 'admin';
   return 'admin';
 }
 

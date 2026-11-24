@@ -13,6 +13,7 @@ import { router as backupRouter } from './backup.js';
 import { router as jobsRouter, startJobs } from './jobs.js';
 import { router as reportsRouter } from './reports.js';
 import { router as syncRouter } from './sync.js';
+import { router as translationsRouter } from './translations.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const CLIENT_DIST = path.resolve(here, '../../client/dist');
@@ -308,6 +309,7 @@ app.use('/api', backupRouter);
 app.use('/api', jobsRouter);
 app.use('/api', reportsRouter);
 app.use('/api', syncRouter);
+app.use('/api', translationsRouter);
 
 app.use('/api', (_req, _res, next) => next(httpError(404, 'Rota não encontrada.')));
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useAuth } from './Auth.jsx';
+import { useTranslation } from '../i18n/I18nContext.jsx';
 import Icon from './Icons.jsx';
 import Modal from './Modal.jsx';
 import { useToast } from './Toast.jsx';
@@ -9,6 +10,7 @@ import { ROLE_NAMES } from '../format.js';
 
 export default function UserMenu() {
   const { user, logout } = useAuth();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [pwd, setPwd] = useState(false);
   const ref = useRef(null);
@@ -20,7 +22,7 @@ export default function UserMenu() {
     return () => document.removeEventListener('pointerdown', close);
   }, [open]);
 
-  if (!user) return <Link className="btn" to="/login">Entrar</Link>;
+  if (!user) return <Link className="btn" to="/login">{t('nav.login', 'Entrar')}</Link>;
 
   return (
     <div className="user-menu" ref={ref}>
@@ -34,8 +36,8 @@ export default function UserMenu() {
             <strong>{user.name}</strong>
             <small>{user.username} · {ROLE_NAMES[user.role]}</small>
           </div>
-          <button role="menuitem" onClick={() => { setOpen(false); setPwd(true); }}>Alterar senha</button>
-          <button role="menuitem" onClick={logout}>Sair</button>
+          <button role="menuitem" onClick={() => { setOpen(false); setPwd(true); }}>{t('nav.change_password', 'Alterar senha')}</button>
+          <button role="menuitem" onClick={logout}>{t('nav.logout', 'Sair')}</button>
         </div>
       )}
       {pwd && <PasswordModal onClose={() => setPwd(false)} />}
@@ -45,6 +47,7 @@ export default function UserMenu() {
 
 function PasswordModal({ onClose }) {
   const toast = useToast();
+  const { t } = useTranslation();
   const [cur, setCur] = useState('');
   const [next, setNext] = useState('');
   const [again, setAgain] = useState('');
@@ -55,20 +58,20 @@ function PasswordModal({ onClose }) {
     setBusy(true);
     try {
       await api.changePassword(cur, next);
-      toast('Senha alterada.');
+      toast(t('auth.password_changed', 'Senha alterada.'));
       onClose();
     } catch (e) { toast(e.message, 'error'); } finally { setBusy(false); }
   };
 
   return (
-    <Modal title="Alterar senha" onClose={onClose}
-      footer={<><button className="btn" onClick={onClose}>Cancelar</button>
-        <button className="btn primary" onClick={save} disabled={busy || !cur || next.length < 8 || next !== again}>Salvar</button></>}>
+    <Modal title={t('auth.change_password_title', 'Alterar senha')} onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>{t('common.cancel', 'Cancelar')}</button>
+        <button className="btn primary" onClick={save} disabled={busy || !cur || next.length < 8 || next !== again}>{t('common.save', 'Salvar')}</button></>}>
       <div className="stack">
-        <label className="field">Senha atual<input type="password" autoComplete="current-password" value={cur} onChange={(e) => setCur(e.target.value)} /></label>
-        <label className="field">Nova senha (mín. 8 caracteres)<input type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} /></label>
-        <label className="field">Repita a nova senha<input type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} />
-          {mismatch && <small className="err-text">As senhas não conferem.</small>}
+        <label className="field">{t('auth.current_password', 'Senha atual')}<input type="password" autoComplete="current-password" value={cur} onChange={(e) => setCur(e.target.value)} /></label>
+        <label className="field">{t('auth.new_password', 'Nova senha (mín. 8 caracteres)')}<input type="password" autoComplete="new-password" value={next} onChange={(e) => setNext(e.target.value)} /></label>
+        <label className="field">{t('auth.repeat_password', 'Repita a nova senha')}<input type="password" autoComplete="new-password" value={again} onChange={(e) => setAgain(e.target.value)} />
+          {mismatch && <small className="err-text">{t('auth.password_mismatch', 'As senhas não conferem.')}</small>}
         </label>
       </div>
     </Modal>

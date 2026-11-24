@@ -173,6 +173,16 @@ export const api = {
   },
   listImports: () => request('/api/imports'),
   deleteImport: (id) => request(`/api/imports/${id}`, { method: 'DELETE' }),
+
+  // traduções e idiomas
+  getTranslations: () => request('/api/translations'),
+  addLanguage: (code) => request('/api/translations/languages', json('POST', { code })),
+  removeLanguage: (code) => request(`/api/translations/languages/${code}`, { method: 'DELETE' }),
+  saveTranslations: (code, terms) => request(`/api/translations/${code}`, json('PUT', { terms })),
+  saveAiKey: (key) => request('/api/translations/ai-key', json('POST', { key })),
+  aiTranslate: (targetLang, terms) => request('/api/translations/ai-translate', json('POST', { targetLang, terms })),
+  importTranslations: (code, translations) => request(`/api/translations/import/${code}`, json('POST', { translations })),
+  getExportTranslationsUrl: (code) => `/api/translations/export/${code}`,
 };
 
 // Baixa a imagem antes de trocar de tela, para a transição não "piscar".

@@ -1,25 +1,28 @@
 import { useLayoutEffect, useRef } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from './Auth.jsx';
+import { useTranslation } from '../i18n/I18nContext.jsx';
 import Icon from './Icons.jsx';
 import UserMenu from './UserMenu.jsx';
+import LanguageSelector from './LanguageSelector.jsx';
 
 const tabs = [
-  ['/dashboard', 'Dashboard', 'viewer'],
-  ['/records', 'Registros', 'viewer'],
-  ['/reports', 'Relatórios', 'viewer'],
-  ['/import', 'Importar Excel', 'operator'],
-  ['/fields', 'Campos e KPIs', 'admin'],
-  ['/admin', 'Plantas e áreas', 'admin'],
-  ['/settings', 'Configurações', 'admin'],
-  ['/users', 'Usuários', 'admin'],
-  ['/companies', 'Empresas & Contas', 'globaladmin'],
-  ['/backup', 'Backup', 'admin'],
+  ['/dashboard', 'nav.dashboard', 'Dashboard', 'viewer'],
+  ['/records', 'nav.records', 'Registros', 'viewer'],
+  ['/reports', 'nav.reports', 'Relatórios', 'viewer'],
+  ['/import', 'nav.import_excel', 'Importar Excel', 'operator'],
+  ['/fields', 'nav.fields_kpis', 'Campos e KPIs', 'admin'],
+  ['/admin', 'nav.plants_areas', 'Plantas e áreas', 'admin'],
+  ['/settings', 'nav.settings', 'Configurações', 'admin'],
+  ['/users', 'nav.users', 'Usuários', 'admin'],
+  ['/companies', 'nav.companies', 'Empresas & Contas', 'globaladmin'],
+  ['/backup', 'nav.backup', 'Backup', 'admin'],
 ];
 
 // Moldura das telas de gestão: barra superior + abas (só as que o perfil pode abrir).
 export default function Shell({ title, actions, children }) {
   const { user, can } = useAuth();
+  const { t } = useTranslation();
   const location = useLocation();
   const navRef = useRef(null);
 
@@ -52,7 +55,7 @@ export default function Shell({ title, actions, children }) {
   return (
     <div className="shell">
       <header className="topbar">
-        <Link className="btn icon" to="/" aria-label="Voltar ao mapa"><Icon name="back" /></Link>
+        <Link className="btn icon" to="/" aria-label={t('nav.back_to_map', 'Voltar ao mapa')} title={t('nav.back_to_map', 'Voltar ao mapa')}><Icon name="back" /></Link>
         <h1>{title}</h1>
         <div className="spacer" />
         {user?.role === 'globaladmin' ? (
@@ -70,12 +73,13 @@ export default function Shell({ title, actions, children }) {
           </span>
         ) : null}
         {actions && <div className="topbar-actions">{actions}</div>}
-        <Link className="btn hide-sm" to="/">Ver mapa</Link>
+        <Link className="btn hide-sm" to="/">{t('nav.map', 'Ver mapa')}</Link>
+        <LanguageSelector />
         <UserMenu />
       </header>
       <nav className="tabs" aria-label="Seções" ref={navRef} onScroll={handleNavScroll}>
-        {tabs.filter(([, , min]) => can(min)).map(([to, label]) => (
-          <NavLink key={to} to={to} className={({ isActive }) => `tab${isActive ? ' active' : ''}`}>{label}</NavLink>
+        {tabs.filter(([, , , min]) => can(min)).map(([to, key, label]) => (
+          <NavLink key={to} to={to} className={({ isActive }) => `tab${isActive ? ' active' : ''}`}>{t(key, label)}</NavLink>
         ))}
       </nav>
       <div className="shell-body">{children}</div>

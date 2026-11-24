@@ -5,10 +5,12 @@ import Icon from '../components/Icons.jsx';
 import Shell from '../components/Shell.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../components/ConfirmModal.jsx';
+import { useTranslation } from '../i18n/I18nContext.jsx';
 
 export default function Admin() {
   const toast = useToast();
   const confirm = useConfirm();
+  const { t } = useTranslation();
   const fileRef = useRef(null);
   const [maps, setMaps] = useState(null);
   const [selectedId, setSelectedId] = useState(null);
@@ -81,12 +83,12 @@ export default function Admin() {
   };
 
   return (
-    <Shell title="Plantas e áreas">
+    <Shell title={t('editor.title', 'Plantas e áreas')}>
       <div className="admin-body">
         <aside className="sidebar">
           <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif" hidden onChange={onUpload} />
           <button className="btn primary wide" onClick={() => fileRef.current.click()} disabled={uploading}>
-            <Icon name="upload" /> {uploading ? 'Enviando…' : 'Enviar imagem'}
+            <Icon name="upload" /> {uploading ? t('editor.uploading', 'Enviando…') : t('editor.upload_image', 'Enviar imagem')}
           </button>
           <ul className="map-list">
             {maps?.map((m) => (
@@ -95,7 +97,7 @@ export default function Admin() {
                   <img src={m.image} alt="" loading="lazy" />
                   <span className="map-item-text">
                     <strong>{m.name}</strong>
-                    <small>{m.area_count} {m.area_count === 1 ? 'área' : 'áreas'}{m.is_root ? ' · inicial' : ''}</small>
+                    <small>{m.area_count === 1 ? t('editor.areas_count_single', '1 área') : t('editor.areas_count_plural', { count: m.area_count })}{m.is_root ? ` · ${t('editor.initial_badge', 'inicial')}` : ''}</small>
                   </span>
                 </button>
               </li>
@@ -116,7 +118,7 @@ export default function Admin() {
             />
           ) : (
             <div className="center-screen inline">
-              <h2>{maps ? 'Comece enviando a planta' : 'Carregando…'}</h2>
+              <h2>{maps ? t('editor.start_by_upload', 'Comece enviando a planta') : t('common.loading', 'Carregando…')}</h2>
               {maps && <p>Envie a imagem da planta geral. Depois você desenha as áreas clicáveis e liga cada uma a uma imagem de detalhe.</p>}
             </div>
           )}

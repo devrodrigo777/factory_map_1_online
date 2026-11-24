@@ -7,6 +7,8 @@ import Icon from '../components/Icons.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { useAuth } from '../components/Auth.jsx';
 import UserMenu from '../components/UserMenu.jsx';
+import LanguageSelector from '../components/LanguageSelector.jsx';
+import { useTranslation } from '../i18n/I18nContext.jsx';
 import { bbox, centroid, pointsAttr } from '../geometry.js';
 import { formatDateTime, formatHours, stageFor } from '../format.js';
 
@@ -41,7 +43,8 @@ function LockMarker({ x, y, k, count, label, color, onOpen }) {
 
 export default function Viewer() {
   const toast = useToast();
-  const { user, can, config } = useAuth();
+  const { user, can } = useAuth();
+  const { t } = useTranslation();
   const stageRef = useRef(null);
   const cache = useRef(new Map());
   const busyRef = useRef(false);
@@ -88,9 +91,7 @@ export default function Viewer() {
       .catch(() => setStatus('error'));
   }, [fetchMap]);
 
-  useEffect(() => {
-    loadRoot();
-  }, [loadRoot, config?.company?.id]);
+  useEffect(loadRoot, [loadRoot]);
 
   const closeLockPanel = useCallback(() => {
     setPanel(null);
@@ -332,21 +333,24 @@ export default function Viewer() {
   if (status === 'empty') {
     return (
       <div className="center-screen">
-        <h1>Nenhuma planta cadastrada</h1>
-        <p>Envie a imagem da planta da fábrica no painel admin para começar.</p>
-        <Link className="btn primary" to={user ? '/admin' : '/login'}>{user ? 'Abrir painel admin' : 'Entrar'}</Link>
+        <h1>{t('viewer.no_plants_title', 'Nenhuma planta cadastrada')}</h1>
+        <p>{t('viewer.no_plants_desc', 'Envie a imagem da planta da fábrica no painel admin para começar.')}</p>
+        <Link className="btn primary" to="/admin">{t('viewer.open_admin', 'Abrir painel admin')}</Link>
       </div>
     );
   }
 
   const crumbs = [...stack.map((s, i) => ({ name: s.name, index: i })), { name: map.name, index: null }];
+  const hasFocusedArea = Boolean(panel?.areaId || highlightAreaId || selected?.id);
 
   const overlay = ({ k }) => (
     <>
       {map.areas.map((a) => {
         const [cx, cy] = centroid(a.points, map.width, map.height);
         const isLockHighlight = (panel?.areaId === a.id) || (highlightAreaId === a.id);
-        const cls = `area${a.target_map_id ? ' has-target' : ''}${selected?.id === a.id ? ' is-selected' : ''}${isLockHighlight ? ' is-lock-highlight' : ''}`;
+        const isFocused = isLockHighlight || (selected?.id === a.id);
+        const isDimmed = hasFocusedArea && !isFocused;
+        const cls = `area${a.target_map_id ? ' has-target' : ''}${selected?.id === a.id ? ' is-selected' : ''}${isLockHighlight ? ' is-lock-highlight' : ''}${isDimmed ? ' is-dimmed' : ''}`;
         return (
           <g
             key={a.id}
@@ -401,21 +405,6 @@ export default function Viewer() {
           ))}
         </nav>
         <div className="spacer" />
-        {!user && config?.company?.name && (
-          <span className="badge off hide-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', fontSize: 12, background: 'rgba(255,255,255,0.08)', borderRadius: 20 }}>
-            🏢 {config.company.name}
-          </span>
-        )}
-        {user?.role === 'globaladmin' && (
-          <div className="hide-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <Link to="/companies" className="badge off" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', fontSize: 12, background: 'rgba(56, 189, 248, 0.12)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.25)', borderRadius: 20, textDecoration: 'none' }}>
-              👑 Global Admin
-            </Link>
-            <Link to="/companies" className="badge" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px', fontSize: 12, background: 'rgba(245, 158, 11, 0.16)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.35)', borderRadius: 20, textDecoration: 'none', fontWeight: 600 }} title="Ambiente ativo - Clique para alternar de empresa">
-              🏢 Ambiente: {user.active_company_name || user.company_name || 'Geral'}
-            </Link>
-          </div>
-        )}
         {locks && (
           <Link className={`chip ${locks.active_total ? 'alert' : ''}`} to={user ? '/dashboard' : '/login'} title={user ? 'Abrir dashboard' : 'Entrar'}>
             <Icon name="lock" size={16} />
@@ -426,19 +415,20 @@ export default function Viewer() {
           <button
             className={`btn icon ${presentation ? 'on presentation-btn-active' : ''}`}
             onClick={togglePresentation}
-            aria-label={presentation ? 'Interromper modo apresentação' : 'Iniciar modo apresentação'}
-            title={presentation ? 'Interromper modo apresentação' : 'Iniciar modo apresentação'}
+            aria-label={presentation ? t('viewer.presentation_stop', 'Interromper modo apresentação') : t('viewer.presentation_start', 'Iniciar modo apresentação')}
+            title={presentation ? t('viewer.presentation_stop', 'Interromper modo apresentação') : t('viewer.presentation_start', 'Iniciar modo apresentação')}
           >
             <Icon name={presentation ? 'pause' : 'play'} />
           </button>
         )}
         {document.fullscreenEnabled && (
-          <button className="btn icon" onClick={toggleFullscreen} aria-label={fullscreen ? 'Sair da tela cheia' : 'Tela cheia'}>
+          <button className="btn icon" onClick={toggleFullscreen} aria-label={fullscreen ? t('viewer.fullscreen_exit', 'Sair da tela cheia') : t('viewer.fullscreen_enter', 'Tela cheia')}>
             <Icon name="full" />
           </button>
         )}
-        {user && <Link className="btn icon" to="/dashboard" aria-label="Dashboard"><Icon name="chart" /></Link>}
+        {user && <Link className="btn icon" to="/dashboard" aria-label={t('nav.dashboard', 'Dashboard')}><Icon name="chart" /></Link>}
         {can('operator') && <Link className="btn icon" to={can('admin') ? '/admin' : '/records'} aria-label="Gestão"><Icon name="gear" /></Link>}
+        <LanguageSelector />
         <UserMenu />
       </header>
 
@@ -532,6 +522,7 @@ export default function Viewer() {
 }
 
 function PresentationPanel({ area, lockCount, durationSeconds = 10, onSelect, zoomEnabled = true, onToggleZoom }) {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [timeLeft, setTimeLeft] = useState(durationSeconds);
 
@@ -572,26 +563,26 @@ function PresentationPanel({ area, lockCount, durationSeconds = 10, onSelect, zo
         <div className="presentation-badge-row">
           <span className="presentation-badge">
             <span className="presentation-dot" />
-            Modo Apresentação
+            {t('viewer.presentation_badge', 'Modo Apresentação')}
           </span>
           <span className="presentation-timer-text">
             {Math.ceil(timeLeft)}s
           </span>
         </div>
-        <h2 className="presentation-title">{area.name || 'Área sem nome'}</h2>
+        <h2 className="presentation-title">{area.name || t('common.none', 'Área sem nome')}</h2>
         {area.code && <p className="code" style={{ margin: 0, fontSize: 13, color: 'var(--steel)' }}>{area.code}</p>}
         <div className="presentation-progress-bar">
           <div className="presentation-progress-fill" style={{ width: `${pct}%` }} />
         </div>
         {onToggleZoom && (
           <div className="presentation-controls-row" onClick={(e) => e.stopPropagation()}>
-            <label className="presentation-zoom-toggle" title="Habilitar ou desabilitar zoom dinâmico de foco nas áreas durante a apresentação">
+            <label className="presentation-zoom-toggle" title={t('settings.presentation_zoom_desc', 'Habilitar ou desabilitar zoom dinâmico de foco nas áreas durante a apresentação')}>
               <input
                 type="checkbox"
                 checked={zoomEnabled}
                 onChange={(e) => onToggleZoom(e.target.checked)}
               />
-              <span>Zoom dinâmico de foco nas áreas</span>
+              <span>{t('settings.presentation_zoom_title', 'Zoom dinâmico de foco nas áreas')}</span>
             </label>
           </div>
         )}
@@ -599,7 +590,7 @@ function PresentationPanel({ area, lockCount, durationSeconds = 10, onSelect, zo
 
       <div className="presentation-body">
         <div className="pres-active-banner">
-          <span className="pres-label">Bloqueios Ativos</span>
+          <span className="pres-label">{t('viewer.active_locks_title', 'Bloqueios Ativos')}</span>
           <span className="pres-active-count">
             {data?.counts?.active ?? lockCount}
           </span>
@@ -608,7 +599,7 @@ function PresentationPanel({ area, lockCount, durationSeconds = 10, onSelect, zo
         {sortedRows.length > 0 ? (
           <div className="pres-summary-section">
             <span className="pres-label pres-summary-title">
-              Resumo dos Bloqueios ({sortedRows.length})
+              {t('viewer.lock_summary_title', 'Resumo dos Bloqueios')} ({sortedRows.length})
             </span>
             <div className="pres-summary-list">
               {sortedRows.map((r) => (
@@ -632,14 +623,14 @@ function PresentationPanel({ area, lockCount, durationSeconds = 10, onSelect, zo
           </div>
         ) : (
           <p className="muted" style={{ textAlign: 'center', margin: '24px 0', fontSize: 13 }}>
-            Nenhum bloqueio ativo nesta área.
+            {t('viewer.no_active_locks', 'Nenhum bloqueio ativo nesta área.')}
           </p>
         )}
       </div>
 
       <div className="presentation-footer">
         <Icon name="cursor" size={14} />
-        <span>Toque para abrir detalhes e gerenciar</span>
+        <span>{t('viewer.presentation_hint', 'Clique no modal para interagir')}</span>
       </div>
     </aside>
   );

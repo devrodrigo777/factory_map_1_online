@@ -7,11 +7,13 @@ import Icon from '../components/Icons.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import { useAuth } from '../components/Auth.jsx';
+import { useTranslation } from '../i18n/I18nContext.jsx';
 import { formatDateTime, formatInt, formatValue, nowInput, parsePhotoUrls, toInputDate } from '../format.js';
 
 export default function Records() {
   const toast = useToast();
   const confirm = useConfirm();
+  const { t } = useTranslation();
   const { can } = useAuth();
   const canEdit = can('operator');
   const [fields, setFields] = useState([]);
@@ -65,15 +67,15 @@ export default function Records() {
     const count = selectedIds.size;
     if (count === 0) return;
     const ok = await confirm({
-      title: 'Excluir registros',
-      message: `Excluir ${count} ${count === 1 ? 'registro' : 'registros'} selecionados? Essa ação não pode ser desfeita.`,
-      confirmText: `Excluir ${count} ${count === 1 ? 'registro' : 'registros'}`,
+      title: t('records.delete_multi_title', 'Excluir registros'),
+      message: t('records.delete_multi_msg', { count }) || `Excluir ${count} registros selecionados? Essa ação não pode ser desfeita.`,
+      confirmText: t('records.delete_selected', 'Excluir selecionados'),
       danger: true,
     });
     if (!ok) return;
     try {
       await api.deleteRecords([...selectedIds]);
-      toast(`${count} ${count === 1 ? 'registro excluído' : 'registros excluídos'}.`);
+      toast(t('records.deleted_multi_success', { count }) || `${count} registros excluídos.`);
       setSelectedIds(new Set());
       load();
     } catch (e) { toast(e.message, 'error'); }
@@ -83,47 +85,47 @@ export default function Records() {
     try {
       const values = { ...row.values, [unlockKey]: nowInput() };
       await api.updateRecord(row.id, values);
-      toast('Desbloqueio registrado.');
+      toast(t('records.unlocked_success', 'Desbloqueio registrado.'));
       load();
     } catch (e) { toast(e.message, 'error'); }
   };
 
   const remove = async (row) => {
     const ok = await confirm({
-      title: 'Excluir registro',
-      message: 'Excluir este registro de bloqueio? Essa ação não pode ser desfeita.',
-      confirmText: 'Excluir registro',
+      title: t('records.delete_single_title', 'Excluir registro'),
+      message: t('records.delete_single_msg', 'Excluir este registro de bloqueio? Essa ação não pode ser desfeita.'),
+      confirmText: t('common.delete', 'Excluir'),
       danger: true,
     });
     if (!ok) return;
-    try { await api.deleteRecord(row.id); load(); } catch (e) { toast(e.message, 'error'); }
+    try { await api.deleteRecord(row.id); toast(t('records.deleted_success', 'Registro excluído.')); load(); } catch (e) { toast(e.message, 'error'); }
   };
 
   return (
-    <Shell title="Registros de bloqueio" actions={<>
-      <button className="btn" onClick={() => setHistory('recent')}><Icon name="clock" /> Alterações recentes</button>
-      {canEdit && <button className="btn primary" onClick={() => setEditing({ id: null, values: {} })}><Icon name="plus" /> Novo registro</button>}
+    <Shell title={t('records.title', 'Registros de bloqueio')} actions={<>
+      <button className="btn" onClick={() => setHistory('recent')}><Icon name="clock" /> {t('records.recent_changes', 'Alterações recentes')}</button>
+      {canEdit && <button className="btn primary" onClick={() => setEditing({ id: null, values: {} })}><Icon name="plus" /> {t('records.new_record', 'Novo registro')}</button>}
     </>}>
       <div className="page">
         <div className="filters">
-          <input type="search" placeholder="Buscar em todas as colunas…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Buscar" />
+          <input type="search" placeholder={t('records.search_placeholder', 'Buscar em todas as colunas…')} value={q} onChange={(e) => setQ(e.target.value)} aria-label={t('common.search', 'Buscar')} />
           <div className="seg">
-            {[['all', 'Todos'], ['active', 'Ativos'], ['closed', 'Encerrados']].map(([v, l]) => (
+            {[['all', t('records.filter_all', 'Todos')], ['active', t('records.filter_active', 'Ativos')], ['closed', t('records.filter_closed', 'Encerrados')]].map(([v, l]) => (
               <button key={v} className={`btn ${status === v ? 'active' : ''}`} onClick={() => setStatus(v)}>{l}</button>
             ))}
           </div>
-          <span className="muted">{formatInt(data.total)} registros</span>
+          <span className="muted">{t('records.count_records', { count: formatInt(data.total) })}</span>
         </div>
 
         {selectedIds.size > 0 && (
           <div className="row" style={{ alignItems: 'center', background: '#fff5f2', padding: '10px 14px', borderRadius: 8, border: '1px solid #f2cfc7' }}>
-            <strong>{selectedIds.size} {selectedIds.size === 1 ? 'registro selecionado' : 'registros selecionados'}</strong>
-            <span className="muted">(seleção múltipla: apenas exclusão permitida)</span>
+            <strong>{selectedIds.size === 1 ? t('records.selected_single', '1 registro selecionado') : t('records.selected_plural', { count: selectedIds.size })}</strong>
+            <span className="muted">{t('records.multi_select_delete_only', '(seleção múltipla: apenas exclusão permitida)')}</span>
             <div className="spacer" />
             <button className="btn danger" onClick={removeSelected} disabled={!canEdit}>
-              <Icon name="trash" /> Excluir {selectedIds.size === 1 ? 'selecionado' : 'selecionados'}
+              <Icon name="trash" /> {t('records.delete_selected', 'Excluir selecionados')}
             </button>
-            <button className="btn ghost" onClick={() => setSelectedIds(new Set())}>Cancelar seleção</button>
+            <button className="btn ghost" onClick={() => setSelectedIds(new Set())}>{t('records.cancel_selection', 'Cancelar seleção')}</button>
           </div>
         )}
 
@@ -134,7 +136,7 @@ export default function Records() {
                 <th style={{ width: 36, textAlign: 'center' }}>
                   <input type="checkbox" aria-label="Selecionar todos da página" checked={data.rows.length > 0 && data.rows.every((r) => selectedIds.has(r.id))} onChange={toggleAll} />
                 </th>
-                <th>Estado</th>
+                <th>{t('records.col_status', 'Estado')}</th>
                 {cols.map((f) => (
                   <th key={f.key} className={f.type === 'number' ? 'num' : ''}>
                     <button className="th-btn" onClick={() => toggleSort(f.key)}>
@@ -143,7 +145,7 @@ export default function Records() {
                     </button>
                   </th>
                 ))}
-                <th>Lançado por</th>
+                <th>{t('records.col_logged_by', 'Lançado por')}</th>
                 <th />
               </tr>
             </thead>
@@ -153,7 +155,7 @@ export default function Records() {
                   <td style={{ textAlign: 'center' }}>
                     <input type="checkbox" aria-label={`Selecionar registro ${r.id}`} checked={selectedIds.has(r.id)} onChange={() => toggleOne(r.id)} />
                   </td>
-                  <td><span className={`badge ${r.active ? 'on' : 'off'}`}>{r.active ? 'Ativo' : 'Encerrado'}</span></td>
+                  <td><span className={`badge ${r.active ? 'on' : 'off'}`}>{r.active ? t('common.active', 'Ativo') : t('common.closed', 'Encerrado')}</span></td>
                   {cols.map((f) => {
                     const val = r.values[f.key];
                     const isPhoto = f.type === 'photo';
@@ -169,7 +171,7 @@ export default function Records() {
                               title={`Ver ${urls.length === 1 ? '1 foto anexada' : `${urls.length} fotos anexadas`}`}
                             >
                               <Icon name="image" size={14} />
-                              <span>{urls.length === 1 ? '1 anexo' : `${urls.length} anexos`}</span>
+                              <span>{urls.length === 1 ? t('common.photo_single', '1 anexo') : t('common.photo_plural', { count: urls.length })}</span>
                             </button>
                           ) : (
                             '—'
@@ -184,32 +186,32 @@ export default function Records() {
                   <td className="row-actions">
                     {selectedIds.size > 1 ? (
                       canEdit && (
-                        <button className="btn icon ghost danger" onClick={() => remove(r)} aria-label="Excluir" title="Excluir registro"><Icon name="trash" /></button>
+                        <button className="btn icon ghost danger" onClick={() => remove(r)} aria-label={t('common.delete', 'Excluir')} title={t('records.delete_single_title', 'Excluir registro')}><Icon name="trash" /></button>
                       )
                     ) : (
                       <>
-                        <button className="btn icon ghost" onClick={() => setHistory(r)} aria-label="Histórico de alterações" title="Histórico de alterações"><Icon name="clock" /></button>
+                        <button className="btn icon ghost" onClick={() => setHistory(r)} aria-label={t('records.recent_changes', 'Histórico de alterações')} title={t('records.recent_changes', 'Histórico de alterações')}><Icon name="clock" /></button>
                         {canEdit && r.active && unlockKey && (
-                          <button className="btn" onClick={() => unlockNow(r)} title="Registrar desbloqueio agora"><Icon name="unlock" /> Desbloquear</button>
+                          <button className="btn" onClick={() => unlockNow(r)} title={t('records.unlock_tooltip', 'Registrar desbloqueio agora')}><Icon name="unlock" /> {t('records.unlock_now', 'Desbloquear')}</button>
                         )}
-                        {canEdit && <button className="btn icon ghost" onClick={() => setEditing({ id: r.id, values: r.values })} aria-label="Editar"><Icon name="edit" /></button>}
-                        {canEdit && <button className="btn icon ghost danger" onClick={() => remove(r)} aria-label="Excluir"><Icon name="trash" /></button>}
+                        {canEdit && <button className="btn icon ghost" onClick={() => setEditing({ id: r.id, values: r.values })} aria-label={t('common.edit', 'Editar')}><Icon name="edit" /></button>}
+                        {canEdit && <button className="btn icon ghost danger" onClick={() => remove(r)} aria-label={t('common.delete', 'Excluir')}><Icon name="trash" /></button>}
                       </>
                     )}
                   </td>
                 </tr>
               ))}
               {data.rows.length === 0 && (
-                <tr><td colSpan={cols.length + 4} className="empty-cell">Nenhum registro. Importe uma planilha ou crie um registro manualmente.</td></tr>
+                <tr><td colSpan={cols.length + 4} className="empty-cell">{t('records.empty_list', 'Nenhum registro. Importe uma planilha ou crie um registro manualmente.')}</td></tr>
               )}
             </tbody>
           </table>
         </div>
 
         <div className="pager">
-          <button className="btn" disabled={page <= 1} onClick={() => setPage(page - 1)}>Anterior</button>
-          <span>Página {page} de {pages}</span>
-          <button className="btn" disabled={page >= pages} onClick={() => setPage(page + 1)}>Próxima</button>
+          <button className="btn" disabled={page <= 1} onClick={() => setPage(page - 1)}>{t('common.previous', 'Anterior')}</button>
+          <span>{t('common.page_of', { page, pages })}</span>
+          <button className="btn" disabled={page >= pages} onClick={() => setPage(page + 1)}>{t('common.next', 'Próxima')}</button>
         </div>
       </div>
 
@@ -233,6 +235,7 @@ export default function Records() {
 
 function RecordForm({ fields, initial, onClose, onSaved }) {
   const toast = useToast();
+  const { t } = useTranslation();
   const [values, setValues] = useState(() => Object.fromEntries(fields.map((f) => {
     const v = initial.values[f.key];
     return [f.key, v == null ? '' : f.type === 'date' ? toInputDate(v) : v];
@@ -244,14 +247,14 @@ function RecordForm({ fields, initial, onClose, onSaved }) {
     try {
       if (initial.id) await api.updateRecord(initial.id, values);
       else await api.createRecord(values);
-      toast('Registro salvo.');
+      toast(t('records.saved_success', 'Registro salvo.'));
       onSaved();
     } catch (e) { toast(e.message, 'error'); } finally { setSaving(false); }
   };
 
   return (
-    <Modal title={initial.id ? 'Editar registro' : 'Novo registro'} onClose={onClose}
-      footer={<><button className="btn" onClick={onClose}>Cancelar</button><button className="btn primary" onClick={save} disabled={saving}>{saving ? 'Salvando…' : 'Salvar'}</button></>}>
+    <Modal title={initial.id ? t('records.edit_record', 'Editar registro') : t('records.new_record', 'Novo registro')} onClose={onClose}
+      footer={<><button className="btn" onClick={onClose}>{t('common.cancel', 'Cancelar')}</button><button className="btn primary" onClick={save} disabled={saving}>{saving ? t('common.saving', 'Salvando…') : t('common.save', 'Salvar')}</button></>}>
       <div className="form-grid">
         {fields.map((f) => (
           <label key={f.key} className="field">{f.label}
@@ -292,18 +295,27 @@ function ChangeList({ changes }) {
 // Histórico de alterações de um registro, ou feed das últimas alterações (inclui exclusões).
 function HistoryModal({ target, onClose }) {
   const toast = useToast();
+  const { t } = useTranslation();
   const recent = target === 'recent';
   const [list, setList] = useState(null);
   useEffect(() => {
     (recent ? api.recentHistory() : api.recordHistory(target.id)).then(setList).catch((e) => toast(e.message, 'error'));
   }, [recent, target, toast]);
 
+  const actionLabels = {
+    create: [t('records.action_created', 'Criado'), 'on'],
+    update: [t('records.action_updated', 'Editado'), 'warn'],
+    unlock: [t('records.action_unlocked', 'Desbloqueio registrado'), 'off'],
+    delete: [t('records.action_deleted', 'Excluído'), 'on'],
+    import: [t('records.action_imported', 'Importado'), 'off'],
+  };
+
   return (
-    <Modal title={recent ? 'Alterações recentes' : `Histórico do registro #${target.id}`} onClose={onClose}>
-      {!list ? <div className="spinner" /> : list.length === 0 ? <p className="muted">Nenhuma alteração registrada.</p> : (
+    <Modal title={recent ? t('records.recent_changes', 'Alterações recentes') : t('records.history_title', { id: target.id })} onClose={onClose}>
+      {!list ? <div className="spinner" /> : list.length === 0 ? <p className="muted">{t('records.history_empty', 'Nenhuma alteração registrada.')}</p> : (
         <ol className="history-list">
           {list.map((h, i) => {
-            const [label, tone] = ACTION[h.action] ?? [h.action, 'off'];
+            const [label, tone] = actionLabels[h.action] ?? [h.action, 'off'];
             return (
               <li key={`${h.id}-${i}`}>
                 <div className="hl-head">

@@ -4,12 +4,15 @@ import { useAuth } from '../components/Auth.jsx';
 import { api } from '../api.js';
 import Icon from '../components/Icons.jsx';
 import Modal from '../components/Modal.jsx';
+import LanguageSelector from '../components/LanguageSelector.jsx';
+import { useTranslation } from '../i18n/I18nContext.jsx';
 
 export default function Login() {
   const { loading, user, config, login, setup } = useAuth();
+  const { t } = useTranslation();
   const nav = useNavigate();
   const loc = useLocation();
-  const [form, setForm] = useState({ name: '', username: '', password: '', again: '', company_name: '' });
+  const [form, setForm] = useState({ name: '', username: '', password: '', again: '' });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [needCaptcha, setNeedCaptcha] = useState(false);
@@ -57,7 +60,7 @@ export default function Login() {
     setBusy(true);
     try {
       if (firstRun) {
-        await setup({ name: form.name, username: form.username, password: form.password, company_name: form.company_name || 'Fábrica Matriz' });
+        await setup({ name: form.name, username: form.username, password: form.password });
       } else {
         await login(form.username, form.password, captchaInput, captchaData?.token);
       }
@@ -75,6 +78,9 @@ export default function Login() {
 
   return (
     <main className="login">
+      <div style={{ position: 'absolute', top: 20, right: 20, zIndex: 10 }}>
+        <LanguageSelector />
+      </div>
       <div className="login-pane">
         <form className="login-card" onSubmit={submit}>
           <div className="login-mark" aria-hidden="true">
@@ -82,27 +88,21 @@ export default function Login() {
               <path d="M7 11V8a5 5 0 0110 0v3M5 11h14v10H5z" />
             </svg>
           </div>
-          <h1>{firstRun ? 'Primeiro acesso' : 'Entrar'}</h1>
+          <h1>{firstRun ? 'Primeiro acesso' : t('auth.btn_login', 'Entrar')}</h1>
           <p className="muted">
             {firstRun
               ? 'Crie o administrador do sistema. Ele poderá cadastrar os demais usuários.'
               : 'EasyLOTOTO v2 • Gestão Visual de Bloqueios e Etiquetagens LOTOTO'}
           </p>
           {firstRun && (
-            <>
-              <label className="field">Nome completo
-                <input value={form.name} onChange={set('name')} autoComplete="name" required autoFocus />
-              </label>
-              <label className="field">Nome da primeira empresa
-                <input value={form.company_name} onChange={set('company_name')} placeholder="Ex.: Fábrica Matriz" />
-                <small style={{ color: 'var(--muted, #94a3b8)', fontSize: 12 }}>Você terá perfil de Administrador Global e poderá cadastrar mais empresas a qualquer momento.</small>
-              </label>
-            </>
+            <label className="field">Nome
+              <input value={form.name} onChange={set('name')} autoComplete="name" required autoFocus />
+            </label>
           )}
-          <label className="field">Usuário
+          <label className="field">{t('auth.username', 'Usuário')}
             <input value={form.username} onChange={set('username')} onBlur={checkUsernameCaptcha} autoComplete="username" autoCapitalize="none" required autoFocus={!firstRun} />
           </label>
-          <label className="field">Senha{firstRun ? ' (mín. 8 caracteres)' : ''}
+          <label className="field">{t('auth.password', 'Senha')}{firstRun ? ' (mín. 8 caracteres)' : ''}
             <input type="password" value={form.password} onChange={set('password')} autoComplete={firstRun ? 'new-password' : 'current-password'} required />
           </label>
           {firstRun && (
@@ -142,7 +142,7 @@ export default function Login() {
 
           {error && <p className="expr-test err" role="alert">{error}</p>}
           <button className="btn primary wide" disabled={busy}>{busy ? 'Aguarde…' : firstRun ? 'Criar administrador' : 'Entrar'}</button>
-          {!firstRun && config.public_view && <a className="login-public" href={loc.state?.from || '/'}>Ver o mapa sem entrar</a>}
+          {!firstRun && config.public_view && <a className="login-public" href="/">Ver o mapa sem entrar</a>}
         </form>
 
         <div className="login-sub-links">

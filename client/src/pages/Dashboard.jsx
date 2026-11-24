@@ -4,10 +4,12 @@ import { api } from '../api.js';
 import Shell from '../components/Shell.jsx';
 import { Columns, HBars } from '../components/Charts.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useTranslation } from '../i18n/I18nContext.jsx';
 import { ROLE_LABELS, formatHours, formatInt, formatValue } from '../format.js';
 
 export default function Dashboard() {
   const toast = useToast();
+  const { t } = useTranslation();
   const [days, setDays] = useState('90');
   const [groupBy, setGroupBy] = useState('');
   const [fields, setFields] = useState([]);
@@ -37,17 +39,17 @@ export default function Dashboard() {
   const filters = (
     <>
       <select className="topbar-select" value={days} onChange={(e) => setDays(e.target.value)} aria-label="Período">
-        <option value="30">Últimos 30 dias</option>
-        <option value="90">Últimos 90 dias</option>
-        <option value="180">Últimos 180 dias</option>
-        <option value="365">Últimos 12 meses</option>
-        <option value="0">Todo o período</option>
+        <option value="30">{t('dashboard.period_30', 'Últimos 30 dias')}</option>
+        <option value="90">{t('dashboard.period_90', 'Últimos 90 dias')}</option>
+        <option value="180">{t('dashboard.period_180', 'Últimos 180 dias')}</option>
+        <option value="365">{t('dashboard.period_365', 'Últimos 12 meses')}</option>
+        <option value="0">{t('dashboard.period_all', 'Todo o período')}</option>
       </select>
     </>
   );
 
   return (
-    <Shell title="Dashboard" actions={filters}>
+    <Shell title={t('dashboard.title', 'Dashboard')} actions={filters}>
       <div className="page dash">
         {!data && <div className="center-screen inline"><div className="spinner" /></div>}
         {data && (
@@ -60,13 +62,13 @@ export default function Dashboard() {
             )}
 
             <section className="kpi-grid" aria-label="Indicadores">
-              {dashboardCfg.kpi_active !== false && <Kpi label="Bloqueios ativos agora" value={formatInt(k.active)} accent />}
-              {dashboardCfg.kpi_active_equipment !== false && <Kpi label="Equipamentos bloqueados" value={formatInt(k.active_equipment)} />}
-              {dashboardCfg.kpi_oldest_active !== false && <Kpi label="Bloqueio ativo mais antigo" value={formatHours(k.oldest_active_hours)} />}
-              {dashboardCfg.kpi_avg_active !== false && <Kpi label="Tempo médio dos ativos" value={formatHours(k.avg_active_hours)} />}
-              {dashboardCfg.kpi_avg_closed !== false && <Kpi label="Duração média (encerrados)" value={formatHours(k.avg_hours)} />}
+              {dashboardCfg.kpi_active !== false && <Kpi label={t('dashboard.kpi_active_now', 'Bloqueios ativos agora')} value={formatInt(k.active)} accent />}
+              {dashboardCfg.kpi_active_equipment !== false && <Kpi label={t('dashboard.kpi_blocked_equip', 'Equipamentos bloqueados')} value={formatInt(k.active_equipment)} />}
+              {dashboardCfg.kpi_oldest_active !== false && <Kpi label={t('dashboard.kpi_oldest_active', 'Bloqueio ativo mais antigo')} value={formatHours(k.oldest_active_hours)} />}
+              {dashboardCfg.kpi_avg_active !== false && <Kpi label={t('dashboard.kpi_avg_active', 'Tempo médio dos ativos')} value={formatHours(k.avg_active_hours)} />}
+              {dashboardCfg.kpi_avg_closed !== false && <Kpi label={t('dashboard.kpi_avg_closed', 'Duração média (encerrados)')} value={formatHours(k.avg_hours)} />}
               {dashboardCfg.kpi_period_total !== false && (
-                <Kpi label={days === '0' ? 'Registros no total' : 'Bloqueios no período'} value={formatInt(k.period_total)} sub={`${formatInt(k.total)} no histórico`} />
+                <Kpi label={days === '0' ? t('dashboard.kpi_total_records', 'Registros no total') : t('dashboard.kpi_period_locks', 'Bloqueios no período')} value={formatInt(k.period_total)} sub={t('dashboard.kpi_in_history', { count: formatInt(k.total) })} />
               )}
               {data.custom.map((c) => (
                 <Kpi key={c.id} label={c.name} value={c.error ? '!' : formatInt(c.value)} sub={c.error} />
@@ -77,12 +79,12 @@ export default function Dashboard() {
               {dashboardCfg.chart_by_group !== false && (
                 <section className="card">
                   <header className="card-head">
-                    <h2>{groupLabel ? `Por ${groupLabel.toLowerCase()}` : 'Por grupo'}</h2>
+                    <h2>{groupLabel ? `Por ${groupLabel.toLowerCase()}` : t('dashboard.chart_by_group', 'Por grupo')}</h2>
                     <select value={groupBy || data.group_by || ''} onChange={(e) => setGroupBy(e.target.value)} aria-label="Agrupar por">
                       {groupable.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
                     </select>
                   </header>
-                  <p className="muted">Ativos agora (forte) e total de bloqueios no período (claro).</p>
+                  <p className="muted">{t('dashboard.active_now_legend', 'Ativos agora (forte) e total de bloqueios no período (claro).')}</p>
                   <HBars items={data.by_group.map((g) => ({ label: g.label, value: g.active, second: g.total }))}
                     format={(v) => v} />
                 </section>
@@ -90,7 +92,7 @@ export default function Dashboard() {
 
               {dashboardCfg.chart_by_month !== false && (
                 <section className="card">
-                  <h2>Bloqueios por mês</h2>
+                  <h2>{t('dashboard.chart_by_month', 'Bloqueios por mês')}</h2>
                   <Columns items={data.by_month} />
                 </section>
               )}
@@ -105,7 +107,7 @@ export default function Dashboard() {
 
               {dashboardCfg.chart_by_user !== false && (
                 <section className="card">
-                  <h2>Quem mais bloqueou</h2>
+                  <h2>{t('dashboard.chart_top_users', 'Quem mais bloqueou')}</h2>
                   <HBars items={data.by_user.map((u) => ({ label: u.label, value: u.count }))}
                     empty="Defina o campo “Quem bloqueou” em Campos e KPIs." />
                 </section>
@@ -113,7 +115,7 @@ export default function Dashboard() {
 
               {dashboardCfg.chart_top_equipment !== false && (
                 <section className="card">
-                  <h2>Equipamentos mais bloqueados</h2>
+                  <h2>{t('dashboard.chart_top_equipment', 'Equipamentos mais bloqueados')}</h2>
                   <HBars items={data.top_equipment.map((e) => ({ label: e.label, value: e.count }))}
                     empty="Defina o campo “Equipamento” e a data de bloqueio em Campos e KPIs." />
                 </section>
@@ -121,21 +123,21 @@ export default function Dashboard() {
 
               {dashboardCfg.chart_recurrence !== false && (
                 <section className="card">
-                  <h2>Reincidência</h2>
-                  <p className="muted">Novo bloqueio do mesmo equipamento em até {data.recurrence_days} dias após o desbloqueio anterior.</p>
+                  <h2>{t('dashboard.chart_recurrence', 'Reincidência')}</h2>
+                  <p className="muted">{t('dashboard.recurrence_desc', { days: data.recurrence_days })}</p>
                   <HBars items={data.recurrence.map((e) => ({ label: e.label, value: e.recurrences }))} empty="Nenhuma reincidência no período." />
                 </section>
               )}
 
               {dashboardCfg.chart_oldest_active !== false && (
                 <section className="card wide">
-                  <h2>Ativos há mais tempo</h2>
-                  {data.oldest_active.length === 0 ? <p className="muted">Nenhum bloqueio ativo.</p> : (
+                  <h2>{t('dashboard.chart_oldest_active', 'Ativos há mais tempo')}</h2>
+                  {data.oldest_active.length === 0 ? <p className="muted">{t('dashboard.no_active_locks', 'Nenhum bloqueio ativo.')}</p> : (
                     <div className="table-wrap">
                       <table className="table">
                         <thead><tr>
                           {['equipment', 'sector', 'locked_by', 'locked_at'].filter((r) => data.roles[r]).map((r) => <th key={r}>{ROLE_LABELS[r]}</th>)}
-                          <th>ATIVO HÁ</th>
+                          <th>{t('dashboard.col_active_for', 'ATIVO HÁ')}</th>
                         </tr></thead>
                         <tbody>
                           {data.oldest_active.map((r) => (

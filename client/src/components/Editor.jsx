@@ -5,6 +5,7 @@ import Icon from './Icons.jsx';
 import ExprInput from './ExprInput.jsx';
 import { useToast } from './Toast.jsx';
 import { useConfirm } from './ConfirmModal.jsx';
+import { useTranslation } from '../i18n/I18nContext.jsx';
 import { centroid, clamp, pointsAttr, rectPoints } from '../geometry.js';
 
 const COLORS = ['#2B5C8F', '#E4572E', '#2E8B6B', '#B8860B', '#7B4FA3', '#C23B6B'];
@@ -17,6 +18,7 @@ const MAX_HISTORY = 30; // Suporta histórico de pelo menos 10 passos (até 30)
 export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onOpenMap }) {
   const toast = useToast();
   const confirm = useConfirm();
+  const { t } = useTranslation();
   const stageRef = useRef(null);
   const imgInput = useRef(null);
 
@@ -578,9 +580,9 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
     <div className="editor">
       <div className="ed-toolbar">
         <div className="seg" role="group" aria-label="Ferramentas">
-          <button className={`btn ${tool === 'select' ? 'active' : ''}`} onClick={() => chooseTool('select')}><Icon name="cursor" /><span>Selecionar</span></button>
-          <button className={`btn ${tool === 'polygon' ? 'active' : ''}`} onClick={() => chooseTool('polygon')}><Icon name="polygon" /><span>Polígono</span></button>
-          <button className={`btn ${tool === 'rect' ? 'active' : ''}`} onClick={() => chooseTool('rect')}><Icon name="square" /><span>Retângulo</span></button>
+          <button className={`btn ${tool === 'select' ? 'active' : ''}`} onClick={() => chooseTool('select')}><Icon name="cursor" /><span>{t('editor.tool_select', 'Selecionar')}</span></button>
+          <button className={`btn ${tool === 'polygon' ? 'active' : ''}`} onClick={() => chooseTool('polygon')}><Icon name="polygon" /><span>{t('editor.tool_polygon', 'Polígono')}</span></button>
+          <button className={`btn ${tool === 'rect' ? 'active' : ''}`} onClick={() => chooseTool('rect')}><Icon name="square" /><span>{t('editor.tool_rect', 'Retângulo')}</span></button>
         </div>
 
         {/* Botões de Desfazer e Refazer (Histórico de passos) */}
@@ -590,8 +592,8 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
             className="btn icon"
             onClick={undo}
             disabled={!canUndo}
-            title="Desfazer (Ctrl+Z)"
-            aria-label="Desfazer"
+            title={t('common.undo', 'Desfazer') + ' (Ctrl+Z)'}
+            aria-label={t('common.undo', 'Desfazer')}
           >
             <Icon name="undo" />
           </button>
@@ -600,8 +602,8 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
             className="btn icon"
             onClick={redo}
             disabled={!canRedo}
-            title="Refazer (Ctrl+Y)"
-            aria-label="Refazer"
+            title={t('common.redo', 'Refazer') + ' (Ctrl+Y)'}
+            aria-label={t('common.redo', 'Refazer')}
           >
             <Icon name="redo" />
           </button>
@@ -615,18 +617,18 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
           title={snapMagnetic ? 'Alinhamento magnético ativado (clique para desativar)' : 'Alinhamento magnético desativado (clique para ativar)'}
         >
           <Icon name="magnet" />
-          <span>{snapMagnetic ? 'Magnético: Ativo' : 'Magnético: Inativo'}</span>
+          <span>{snapMagnetic ? t('editor.magnetic_active', 'Magnético: Ativo') : t('editor.magnetic_inactive', 'Magnético: Inativo')}</span>
         </button>
 
         {tool === 'polygon' && draft.length > 0 && (
           <>
-            <button className="btn primary" onClick={finishPolygon} disabled={draft.length < 3}><Icon name="check" /><span>Concluir</span></button>
-            <button className="btn" onClick={cancelDraft}><Icon name="close" /><span>Cancelar</span></button>
+            <button className="btn primary" onClick={finishPolygon} disabled={draft.length < 3}><Icon name="check" /><span>{t('editor.finish_polygon', 'Concluir')}</span></button>
+            <button className="btn" onClick={cancelDraft}><Icon name="close" /><span>{t('editor.cancel_draft', 'Cancelar')}</span></button>
           </>
         )}
         <div className="spacer" />
-        {dirty && <span className="dirty">Alterações não salvas</span>}
-        <button className="btn primary" onClick={save} disabled={!dirty || saving}><Icon name="save" /><span>{saving ? 'Salvando…' : 'Salvar'}</span></button>
+        {dirty && <span className="dirty">{t('common.unsaved_changes', 'Alterações não salvas')}</span>}
+        <button className="btn primary" onClick={save} disabled={!dirty || saving}><Icon name="save" /><span>{saving ? t('editor.saving', 'Salvando…') : t('editor.save_map', 'Salvar')}</span></button>
       </div>
 
       <div className="ed-body">
@@ -851,6 +853,7 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
 }
 
 function DisplayFieldsConfig({ fields, value = [], onChange }) {
+  const { t } = useTranslation();
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
 
@@ -918,11 +921,11 @@ function DisplayFieldsConfig({ fields, value = [], onChange }) {
 
   return (
     <div className="display-fields-config">
-      <div className="display-fields-title">Informações mostradas ao clicar no cadeado</div>
+      <div className="display-fields-title">{t('editor.lock_info_title', 'Informações mostradas ao clicar no cadeado')}</div>
       <div className="display-fields-header">
-        <small className="muted">Ordene os itens ou use as setas. Mova o Separador para cima para ativá-lo.</small>
+        <small className="muted">{t('editor.lock_info_hint', 'Ordene os itens ou use as setas. Mova o Separador para cima para ativá-lo.')}</small>
         <button type="button" className="btn ghost small reset-btn" onClick={resetDefault} title="Restaurar lista e ordem padrão">
-          Padrão
+          {t('editor.btn_default_order', 'Padrão')}
         </button>
       </div>
 
@@ -953,7 +956,7 @@ function DisplayFieldsConfig({ fields, value = [], onChange }) {
                 setDragOverIdx(null);
               }}
             >
-              <span>Posicionar aqui</span>
+              <span>{t('editor.position_here', 'Posicionar aqui')}</span>
             </li>
           );
 
@@ -983,20 +986,20 @@ function DisplayFieldsConfig({ fields, value = [], onChange }) {
                     setDragOverIdx(null);
                   }}
                 >
-                  <div className="field-order-handle" title="Arrastar para reordenar">
+                  <div className="field-order-handle" title={t('editor.drag_to_reorder', 'Arrastar para reordenar')}>
                     <Icon name="grip" size={15} />
                   </div>
                   <div className="field-order-content">
                     <div className="field-order-title">
-                      <strong>Separador</strong>
+                      <strong>{t('editor.separator_title', 'Separador')}</strong>
                       <span className={`badge ${isSepAtEnd ? 'off' : 'on'}`}>
-                        {isSepAtEnd ? 'Inativo no final' : 'Ativo'}
+                        {isSepAtEnd ? t('editor.separator_inactive', 'Inativo no final') : t('editor.separator_active', 'Ativo')}
                       </span>
                     </div>
                     <small className="field-order-hint">
                       {isSepAtEnd
-                        ? 'No final (inativo). Mova para cima para colapsar itens.'
-                        : 'Itens abaixo ficarão colapsados com botão para expandir.'}
+                        ? t('editor.separator_hint_inactive', 'No final (inativo). Mova para cima para colapsar itens.')
+                        : t('editor.separator_hint_active', 'Itens abaixo ficarão colapsados com botão para expandir.')}
                     </small>
                   </div>
                   <div className="field-order-actions">
