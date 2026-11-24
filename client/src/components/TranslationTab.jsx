@@ -19,6 +19,7 @@ export default function TranslationTab() {
     aiConfigured,
     aiKeyMasked,
     aiProvider,
+    aiModel,
     t,
   } = useTranslation();
 
@@ -39,9 +40,20 @@ export default function TranslationTab() {
   const [savingAiKey, setSavingAiKey] = useState(false);
   const [aiCardOpen, setAiCardOpen] = useState(false);
 
+  // Estados para seleção e gerenciamento dinâmico de modelos de IA
+  const [availableModels, setAvailableModels] = useState([]);
+  const [selectedModel, setSelectedModel] = useState(aiModel || '');
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [isEditingModel, setIsEditingModel] = useState(false);
+  const [savingModel, setSavingModel] = useState(false);
+
   useEffect(() => {
     if (aiProvider) setSelectedProvider(aiProvider);
   }, [aiProvider]);
+
+  useEffect(() => {
+    if (aiModel) setSelectedModel(aiModel);
+  }, [aiModel]);
 
   // Idioma selecionado ativo
   const currentLangInfo = useMemo(() => {
@@ -251,21 +263,75 @@ export default function TranslationTab() {
     }
   };
 
+  // Consulta lista de modelos disponíveis no Groq
+  const handleFetchModels = async (keyOverride) => {
+    setLoadingModels(true);
+    try {
+      const res = keyOverride ? await api.fetchAiModelsWithKey(keyOverride) : await api.getAiModels();
+      const list = res?.models || [];
+      setAvailableModels(list);
+      if (list.length > 0) {
+        if (!selectedModel || !list.some((m) => m.id === selectedModel)) {
+          const pref = list.find((m) => m.id === 'llama-3.1-8b-instant') || list[0];
+          setSelectedModel(pref.id);
+        }
+      }
+      return list;
+    } catch (e) {
+      toast(e.message, 'error');
+      return [];
+    } finally {
+      setLoadingModels(false);
+    }
+  };
+
   // Salvar chave e provedor de IA
   const handleSaveAiKey = async (e) => {
     e.preventDefault();
     if (!aiKeyInput.trim()) return;
     setSavingAiKey(true);
     try {
-      await api.saveAiKey(aiKeyInput.trim(), selectedProvider);
+      const keyVal = aiKeyInput.trim();
+      await api.saveAiKey(keyVal, selectedProvider);
       setAiKeyInput('');
       setIsEditingAiKey(false);
       await reloadTranslations();
       toast(t('translation.ai_key_saved', 'Chave de Inteligência Artificial salva.'));
+
+      // Dispara imediatamente consulta de modelos disponíveis para o usuário escolher
+      const models = await handleFetchModels(keyVal);
+      if (models.length > 0) {
+        setIsEditingModel(true);
+      }
     } catch (e) {
       toast(e.message, 'error');
     } finally {
       setSavingAiKey(false);
+    }
+  };
+
+  // Iniciar alteração de modelo (dispara consulta aos modelos disponíveis)
+  const handleStartEditModel = async () => {
+    setIsEditingModel(true);
+    const models = await handleFetchModels();
+    if (models.length > 0 && aiModel) {
+      setSelectedModel(aiModel);
+    }
+  };
+
+  // Salvar modelo selecionado
+  const handleSaveModel = async () => {
+    if (!selectedModel) return;
+    setSavingModel(true);
+    try {
+      await api.saveAiModel(selectedModel);
+      await reloadTranslations();
+      setIsEditingModel(false);
+      toast(t('translation.ai_model_saved', 'Modelo de IA configurado com sucesso.'));
+    } catch (e) {
+      toast(e.message, 'error');
+    } finally {
+      setSavingModel(false);
     }
   };
 
@@ -282,7 +348,10 @@ export default function TranslationTab() {
     try {
       await api.deleteAiKey();
       setIsEditingAiKey(false);
+      setIsEditingModel(false);
       setAiKeyInput('');
+      setSelectedModel('');
+      setAvailableModels([]);
       await reloadTranslations();
       toast('Chave de API removida.');
     } catch (e) {
@@ -358,20 +427,23 @@ export default function TranslationTab() {
           </div>
         </div>
 
-        {/* Configuração colapsável da Chave de IA */}
+        {/* Configuração colapsável da Chave e Modelo de IA */}
         {aiCardOpen && (
           aiKeyMasked && !isEditingAiKey ? (
             <div className="ai-key-config-box">
               <div className="ai-key-header">
-                <strong>{t('translation.ai_key_title', 'Chave de Acesso da Inteligência Artificial')}</strong>
+                <strong>{t('translation.ai_key_title', 'Configuração da Inteligência Artificial')}</strong>
                 <small className="muted">
                   {t(
                     'translation.ai_key_configured_desc',
-                    'Chave de Inteligência Artificial configurada e ativa para traduções instantâneas.'
+                    'Chave e modelo de Inteligência Artificial configurados e ativos para traduções instantâneas.'
                   )}
                 </small>
               </div>
-              <div className="ai-key-input-row">
+
+              {/* Linha 1: Chave de API */}
+              <div className="ai-config-row">
+                <span className="ai-row-label">Chave de API:</span>
                 <select
                   className="ai-provider-select"
                   value={selectedProvider}
@@ -404,12 +476,77 @@ export default function TranslationTab() {
                 >
                   <Icon name="trash" />
                 </button>
+              </div>
+
+              {/* Linha 2: Modelo de IA */}
+              <div className="ai-config-row">
+                <span className="ai-row-label">{t('translation.ai_model_label', 'Modelo de IA:')}</span>
+                {aiModel && !isEditingModel ? (
+                  <>
+                    <div className="ai-model-label-box" title="Modelo de Inteligência Artificial selecionado">
+                      <span className="ai-model-label">{aiModel}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn icon ghost"
+                      onClick={handleStartEditModel}
+                      disabled={loadingModels}
+                      title="Alterar modelo de IA"
+                      aria-label="Alterar modelo de IA"
+                    >
+                      <Icon name="edit" />
+                    </button>
+                  </>
+                ) : (
+                  <div className="ai-model-edit-wrap">
+                    <select
+                      className="ai-model-select"
+                      value={selectedModel}
+                      onChange={(e) => setSelectedModel(e.target.value)}
+                      disabled={loadingModels || savingModel}
+                      title="Selecione o modelo desejado"
+                    >
+                      {loadingModels ? (
+                        <option value="">Consultando modelos disponíveis no Groq…</option>
+                      ) : availableModels.length === 0 ? (
+                        <option value="">Nenhum modelo disponível retornado</option>
+                      ) : (
+                        availableModels.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.id} {m.owned_by ? `(${m.owned_by})` : ''}
+                          </option>
+                        ))
+                      )}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn primary"
+                      onClick={handleSaveModel}
+                      disabled={savingModel || loadingModels || !selectedModel}
+                    >
+                      {savingModel ? 'Salvando…' : t('translation.save_ai_model', 'Salvar modelo')}
+                    </button>
+                    {aiModel && (
+                      <button
+                        type="button"
+                        className="btn ghost"
+                        onClick={() => setIsEditingModel(false)}
+                        disabled={savingModel}
+                      >
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="ai-config-footer">
                 <button
                   type="button"
-                  className="btn ghost"
+                  className="btn ghost small-btn"
                   onClick={() => setAiCardOpen(false)}
                 >
-                  Fechar
+                  Fechar configuração
                 </button>
               </div>
             </div>

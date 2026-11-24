@@ -75,6 +75,7 @@ router.get('/translations', (_req, res) => {
 
   const aiKey = (process.env.GROQ_API_KEY || getSetting('ai_translation_key') || '').trim();
   const aiProvider = getSetting('ai_translation_provider') || 'groq';
+  const aiModel = getSetting('ai_translation_model') || '';
 
   let aiKeyMasked = null;
   if (aiKey) {
@@ -90,6 +91,7 @@ router.get('/translations', (_req, res) => {
     aiConfigured: Boolean(aiKey),
     aiProvider,
     aiKeyMasked,
+    aiModel,
   });
 });
 
@@ -166,11 +168,14 @@ router.put('/translations/:code', (req, res, next) => {
 // Salva a chave e o provedor de Inteligência Artificial para tradução
 router.post('/translations/ai-key', (req, res, next) => {
   try {
-    const { key, provider } = req.body || {};
+    const { key, provider, model } = req.body || {};
     const trimmedKey = String(key || '').trim();
     setSetting('ai_translation_key', trimmedKey);
     if (provider) {
       setSetting('ai_translation_provider', String(provider).trim());
+    }
+    if (model) {
+      setSetting('ai_translation_model', String(model).trim());
     }
     res.json({ ok: true });
   } catch (err) {
@@ -182,7 +187,86 @@ router.post('/translations/ai-key', (req, res, next) => {
 router.delete('/translations/ai-key', (_req, res, next) => {
   try {
     setSetting('ai_translation_key', '');
+    setSetting('ai_translation_model', '');
     res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Salva o modelo selecionado para tradução
+router.post('/translations/ai-model', (req, res, next) => {
+  try {
+    const { model } = req.body || {};
+    const trimmed = String(model || '').trim();
+    if (!trimmed) throw httpError(400, 'Modelo não informado.');
+    setSetting('ai_translation_model', trimmed);
+    res.json({ ok: true, model: trimmed });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Lista modelos disponíveis no Groq
+const fetchGroqModels = async (apiKey) => {
+  let groqRes;
+  try {
+    groqRes = await fetch('https://api.groq.com/openai/v1/models', {
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+      },
+    });
+  } catch (netErr) {
+    throw httpError(400, `Não foi possível conectar ao provedor de IA: ${netErr.message}`);
+  }
+
+  if (!groqRes.ok) {
+    const errText = await groqRes.text().catch(() => '');
+    let msg = 'chave de API inválida ou sem permissão.';
+    try {
+      const parsed = JSON.parse(errText);
+      if (parsed?.error?.message) msg = parsed.error.message;
+    } catch {}
+    throw httpError(400, `Erro ao consultar modelos (${groqRes.status}): ${msg}`);
+  }
+
+  const json = await groqRes.json();
+  const rawList = Array.isArray(json?.data) ? json.data : [];
+  // Filtra modelos utilizáveis em chat/completions (exclui whisper/áudio)
+  const models = rawList
+    .filter((m) => !m.id.toLowerCase().includes('whisper'))
+    .map((m) => ({
+      id: m.id,
+      owned_by: m.owned_by,
+      context_window: m.context_window,
+      active: m.active !== false,
+    }));
+
+  return models;
+};
+
+router.get('/translations/ai-models', async (_req, res, next) => {
+  try {
+    const apiKey = (process.env.GROQ_API_KEY || getSetting('ai_translation_key') || '').trim();
+    if (!apiKey) {
+      throw httpError(400, 'Chave de Inteligência Artificial não configurada.');
+    }
+    const models = await fetchGroqModels(apiKey);
+    res.json({ ok: true, models });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/translations/ai-models', async (req, res, next) => {
+  try {
+    const { key } = req.body || {};
+    const apiKey = String(key || process.env.GROQ_API_KEY || getSetting('ai_translation_key') || '').trim();
+    if (!apiKey) {
+      throw httpError(400, 'Chave de Inteligência Artificial não informada.');
+    }
+    const models = await fetchGroqModels(apiKey);
+    res.json({ ok: true, models });
   } catch (err) {
     next(err);
   }
@@ -205,6 +289,7 @@ router.post('/translations/ai-translate', async (req, res, next) => {
       );
     }
 
+    const model = (getSetting('ai_translation_model') || 'llama-3.1-8b-instant').trim();
     const targetInfo = SUPPORTED_LANGUAGES.find((l) => l.code === targetLang) || { name: targetLang };
 
     const promptMessages = [
@@ -237,7 +322,7 @@ router.post('/translations/ai-translate', async (req, res, next) => {
           Authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-          model: 'llama-3.3-70b-versatile',
+          model,
           messages: promptMessages,
           temperature: 0.1,
           response_format: { type: 'json_object' },
