@@ -339,6 +339,29 @@ code { background: #eef1f4; padding: 1px 6px; border-radius: 4px; font-size: 0.9
 .empty-cell { text-align: center; color: var(--steel); padding: 28px !important; }
 .dim { opacity: 0.5; }
 
+/* Tabela de registros com nowrap e reticências */
+.records-table {
+  table-layout: auto;
+}
+.records-table th,
+.records-table td {
+  white-space: nowrap;
+}
+.records-table td:not(.row-actions) {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+.records-table .cell-truncate {
+  display: inline-block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: bottom;
+}
+
 .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .badge.on { background: #fde3dc; color: #a92f12; }
 .badge.off { background: #e3eee9; color: #1f6a50; }
@@ -760,7 +783,7 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
 .cfg-group:disabled { opacity: 0.55; }
 .folder-row { display: flex; gap: 8px; } .folder-row input { flex: 1; min-width: 0; }
 .job-status { margin: 0; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; font-size: 14px; overflow-wrap: anywhere; }
-.msg-cell { max-width: 520px; overflow-wrap: anywhere; font-size: 13.5px; }
+.msg-cell { max-width: 480px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13.5px; }
 
 .history-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
 .history-list li { padding: 10px 0 12px 16px; border-left: 2px solid var(--line); position: relative; }
@@ -2353,8 +2376,24 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
   flex: 1;
   min-width: 240px;
 }
-.terms-search-wrap input {
+.terms-search-wrap input[type='search'],
+.terms-search-wrap input,
+.terms-search-input {
   width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 14px;
+  color: var(--ink);
+  box-sizing: border-box;
+  font-family: inherit;
+}
+.terms-search-wrap input:focus,
+.terms-search-input:focus {
+  outline: 2px solid var(--blue);
+  border-color: var(--blue);
 }
 .translation-table {
   width: 100%;
@@ -2429,13 +2468,13 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
 }
 .ai-key-config-box {
   margin-top: 16px;
-  padding: 14px 18px;
+  padding: 16px 18px;
   background: #f8fafc;
   border: 1px dashed #cbd5e1;
-  border-radius: 8px;
+  border-radius: 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
 }
 .ai-key-header {
   display: flex;
@@ -2446,9 +2485,62 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
 }
-.ai-key-input-row input {
+.ai-provider-select {
+  min-height: 40px;
+  min-width: 120px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0 10px;
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.ai-provider-select:disabled {
+  background: #f1f5f9;
+  color: var(--steel);
+  cursor: default;
+}
+.ai-key-input {
   flex: 1;
+  min-width: 220px;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 14px;
+  color: var(--ink);
+  box-sizing: border-box;
+  font-family: inherit;
+}
+.ai-key-input:focus {
+  outline: 2px solid var(--blue);
+  border-color: var(--blue);
+}
+.ai-key-masked-box {
+  flex: 1;
+  min-width: 220px;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+.ai-key-masked-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13.5px;
+  color: var(--ink);
+  letter-spacing: 0.08em;
+  font-weight: 600;
+  user-select: all;
 }
 .text-success {
   color: #16a34a !important;

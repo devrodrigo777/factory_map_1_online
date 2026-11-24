@@ -27,6 +27,8 @@ export function I18nProvider({ children }) {
   }));
 
   const [aiConfigured, setAiConfigured] = useState(false);
+  const [aiKeyMasked, setAiKeyMasked] = useState(null);
+  const [aiProvider, setAiProvider] = useState('groq');
   const [loading, setLoading] = useState(true);
 
   const reloadTranslations = useCallback(async () => {
@@ -46,6 +48,8 @@ export function I18nProvider({ children }) {
         }));
       }
       setAiConfigured(!!data?.aiConfigured);
+      setAiKeyMasked(data?.aiKeyMasked || null);
+      setAiProvider(data?.aiProvider || 'groq');
     } catch {
       // Falha silenciosa em offline sem rede
     } finally {
@@ -115,6 +119,8 @@ export function I18nProvider({ children }) {
       masterTerms: MASTER_TERMS,
       supportedLanguages: SUPPORTED_LANGUAGES,
       aiConfigured,
+      aiKeyMasked,
+      aiProvider,
       loading,
       t,
       reloadTranslations,
@@ -126,6 +132,8 @@ export function I18nProvider({ children }) {
       availableLanguages,
       translationsMap,
       aiConfigured,
+      aiKeyMasked,
+      aiProvider,
       loading,
       t,
       reloadTranslations,

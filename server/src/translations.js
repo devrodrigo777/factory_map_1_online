@@ -73,14 +73,23 @@ router.get('/translations', (_req, res) => {
     return { ...info, ...progress };
   });
 
-  const aiKey = process.env.GROQ_API_KEY || getSetting('ai_translation_key');
+  const aiKey = (process.env.GROQ_API_KEY || getSetting('ai_translation_key') || '').trim();
+  const aiProvider = getSetting('ai_translation_provider') || 'groq';
+
+  let aiKeyMasked = null;
+  if (aiKey) {
+    const prefixLen = Math.min(5, aiKey.length);
+    aiKeyMasked = `${aiKey.slice(0, prefixLen)}****************`;
+  }
 
   res.json({
     availableLanguages,
     supportedLanguages: SUPPORTED_LANGUAGES,
     translations: translationsMap,
     masterTerms: MASTER_TERMS,
-    aiConfigured: Boolean(aiKey && aiKey.trim().length > 0),
+    aiConfigured: Boolean(aiKey),
+    aiProvider,
+    aiKeyMasked,
   });
 });
 
@@ -154,11 +163,25 @@ router.put('/translations/:code', (req, res, next) => {
   }
 });
 
-// Salva a chave de Inteligência Artificial para tradução
+// Salva a chave e o provedor de Inteligência Artificial para tradução
 router.post('/translations/ai-key', (req, res, next) => {
   try {
-    const { key } = req.body || {};
-    setSetting('ai_translation_key', String(key || '').trim());
+    const { key, provider } = req.body || {};
+    const trimmedKey = String(key || '').trim();
+    setSetting('ai_translation_key', trimmedKey);
+    if (provider) {
+      setSetting('ai_translation_provider', String(provider).trim());
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Remove a chave de Inteligência Artificial para tradução
+router.delete('/translations/ai-key', (_req, res, next) => {
+  try {
+    setSetting('ai_translation_key', '');
     res.json({ ok: true });
   } catch (err) {
     next(err);
@@ -205,25 +228,38 @@ router.post('/translations/ai-translate', async (req, res, next) => {
       },
     ];
 
-    const groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: promptMessages,
-        temperature: 0.1,
-        response_format: { type: 'json_object' },
-      }),
-    });
+    let groqResponse;
+    try {
+      groqResponse = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: promptMessages,
+          temperature: 0.1,
+          response_format: { type: 'json_object' },
+        }),
+      });
+    } catch (netErr) {
+      throw httpError(400, `Não foi possível conectar ao provedor de Inteligência Artificial: ${netErr.message}`);
+    }
 
     if (!groqResponse.ok) {
       const errText = await groqResponse.text().catch(() => '');
+      let errorDetail = 'verifique a chave de API informada.';
+      try {
+        const parsed = JSON.parse(errText);
+        if (parsed?.error?.message) {
+          errorDetail = parsed.error.message;
+        }
+      } catch {}
+      // Retorna status 400 (nunca 401 do provider) para que a aplicação não desconecte a sessão do usuário
       throw httpError(
-        groqResponse.status,
-        `Erro na comunicação com a Inteligência Artificial (${groqResponse.status}): ${errText || 'verifique a chave informada.'}`
+        400,
+        `Erro na comunicação com a Inteligência Artificial (${groqResponse.status}): ${errorDetail}`
       );
     }
 

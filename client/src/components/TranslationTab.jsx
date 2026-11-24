@@ -17,6 +17,8 @@ export default function TranslationTab() {
     translations,
     reloadTranslations,
     aiConfigured,
+    aiKeyMasked,
+    aiProvider,
     t,
   } = useTranslation();
 
@@ -31,9 +33,15 @@ export default function TranslationTab() {
   const [batchTranslating, setBatchTranslating] = useState(false);
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [candidateLang, setCandidateLang] = useState('');
+  const [selectedProvider, setSelectedProvider] = useState(aiProvider || 'groq');
+  const [isEditingAiKey, setIsEditingAiKey] = useState(false);
   const [aiKeyInput, setAiKeyInput] = useState('');
   const [savingAiKey, setSavingAiKey] = useState(false);
   const [aiCardOpen, setAiCardOpen] = useState(false);
+
+  useEffect(() => {
+    if (aiProvider) setSelectedProvider(aiProvider);
+  }, [aiProvider]);
 
   // Idioma selecionado ativo
   const currentLangInfo = useMemo(() => {
@@ -243,20 +251,42 @@ export default function TranslationTab() {
     }
   };
 
-  // Salvar chave de IA
+  // Salvar chave e provedor de IA
   const handleSaveAiKey = async (e) => {
     e.preventDefault();
+    if (!aiKeyInput.trim()) return;
     setSavingAiKey(true);
     try {
-      await api.saveAiKey(aiKeyInput);
+      await api.saveAiKey(aiKeyInput.trim(), selectedProvider);
       setAiKeyInput('');
-      setAiCardOpen(false);
+      setIsEditingAiKey(false);
       await reloadTranslations();
       toast(t('translation.ai_key_saved', 'Chave de Inteligência Artificial salva.'));
     } catch (e) {
       toast(e.message, 'error');
     } finally {
       setSavingAiKey(false);
+    }
+  };
+
+  // Remover chave de IA com confirmação
+  const handleDeleteAiKey = async () => {
+    const ok = await confirm({
+      title: 'Remover chave de API',
+      message: 'Tem certeza que deseja remover a chave de API da Inteligência Artificial? A tradução com IA será pausada até a configuração de uma nova chave.',
+      confirmText: 'Remover chave',
+      danger: true,
+    });
+    if (!ok) return;
+
+    try {
+      await api.deleteAiKey();
+      setIsEditingAiKey(false);
+      setAiKeyInput('');
+      await reloadTranslations();
+      toast('Chave de API removida.');
+    } catch (e) {
+      toast(e.message, 'error');
     }
   };
 
@@ -330,32 +360,104 @@ export default function TranslationTab() {
 
         {/* Configuração colapsável da Chave de IA */}
         {aiCardOpen && (
-          <form className="ai-key-config-box" onSubmit={handleSaveAiKey}>
-            <div className="ai-key-header">
-              <strong>{t('translation.ai_key_title', 'Chave de Acesso da Inteligência Artificial')}</strong>
-              <small className="muted">
-                {t(
-                  'translation.ai_key_desc',
-                  'Informe sua chave para habilitar a tradução automatizada instantânea de termos.'
-                )}
-              </small>
+          aiKeyMasked && !isEditingAiKey ? (
+            <div className="ai-key-config-box">
+              <div className="ai-key-header">
+                <strong>{t('translation.ai_key_title', 'Chave de Acesso da Inteligência Artificial')}</strong>
+                <small className="muted">
+                  {t(
+                    'translation.ai_key_configured_desc',
+                    'Chave de Inteligência Artificial configurada e ativa para traduções instantâneas.'
+                  )}
+                </small>
+              </div>
+              <div className="ai-key-input-row">
+                <select
+                  className="ai-provider-select"
+                  value={selectedProvider}
+                  disabled
+                  title="Provedor de IA selecionado"
+                >
+                  <option value="groq">Groq</option>
+                </select>
+                <div className="ai-key-masked-box" title="Chave de API configurada">
+                  <span className="ai-key-masked-label">{aiKeyMasked}</span>
+                </div>
+                <button
+                  type="button"
+                  className="btn icon ghost"
+                  onClick={() => {
+                    setIsEditingAiKey(true);
+                    setAiKeyInput('');
+                  }}
+                  title="Editar chave de API"
+                  aria-label="Editar chave de API"
+                >
+                  <Icon name="edit" />
+                </button>
+                <button
+                  type="button"
+                  className="btn icon ghost danger"
+                  onClick={handleDeleteAiKey}
+                  title="Remover chave de API"
+                  aria-label="Remover chave de API"
+                >
+                  <Icon name="trash" />
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => setAiCardOpen(false)}
+                >
+                  Fechar
+                </button>
+              </div>
             </div>
-            <div className="ai-key-input-row">
-              <input
-                type="password"
-                placeholder={t('translation.ai_key_placeholder', 'Cole sua chave de API aqui…')}
-                value={aiKeyInput}
-                onChange={(e) => setAiKeyInput(e.target.value)}
-                autoComplete="off"
-              />
-              <button type="submit" className="btn primary" disabled={savingAiKey || !aiKeyInput.trim()}>
-                {savingAiKey ? 'Salvando…' : t('translation.save_ai_key', 'Salvar chave')}
-              </button>
-              <button type="button" className="btn ghost" onClick={() => setAiCardOpen(false)}>
-                Cancelar
-              </button>
-            </div>
-          </form>
+          ) : (
+            <form className="ai-key-config-box" onSubmit={handleSaveAiKey}>
+              <div className="ai-key-header">
+                <strong>{t('translation.ai_key_title', 'Chave de Acesso da Inteligência Artificial')}</strong>
+                <small className="muted">
+                  {t(
+                    'translation.ai_key_desc',
+                    'Informe sua chave para habilitar a tradução automatizada instantânea de termos.'
+                  )}
+                </small>
+              </div>
+              <div className="ai-key-input-row">
+                <select
+                  className="ai-provider-select"
+                  value={selectedProvider}
+                  onChange={(e) => setSelectedProvider(e.target.value)}
+                  title="Selecione o provedor de IA"
+                >
+                  <option value="groq">Groq</option>
+                </select>
+                <input
+                  type="password"
+                  className="ai-key-input"
+                  placeholder={t('translation.ai_key_placeholder', 'Cole sua chave de API aqui…')}
+                  value={aiKeyInput}
+                  onChange={(e) => setAiKeyInput(e.target.value)}
+                  autoComplete="off"
+                />
+                <button type="submit" className="btn primary" disabled={savingAiKey || !aiKeyInput.trim()}>
+                  {savingAiKey ? 'Salvando…' : t('translation.save_ai_key', 'Salvar chave')}
+                </button>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  onClick={() => {
+                    setIsEditingAiKey(false);
+                    setAiKeyInput('');
+                    if (!aiKeyMasked) setAiCardOpen(false);
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          )
         )}
 
         {/* Grid de idiomas disponíveis com porcentagem de conclusão */}

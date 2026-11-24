@@ -130,7 +130,7 @@ export default function Records() {
         )}
 
         <div className="table-wrap tall">
-          <table className="table">
+          <table className="table records-table">
             <thead>
               <tr>
                 <th style={{ width: 36, textAlign: 'center' }}>
@@ -160,8 +160,10 @@ export default function Records() {
                     const val = r.values[f.key];
                     const isPhoto = f.type === 'photo';
                     const urls = isPhoto ? parsePhotoUrls(val) : [];
+                    const displayVal = formatValue(f.type, val, f.key);
+                    const titleText = !isPhoto && displayVal && displayVal !== '—' ? String(displayVal) : undefined;
                     return (
-                      <td key={f.key} className={f.type === 'number' ? 'num' : ''}>
+                      <td key={f.key} className={f.type === 'number' ? 'num' : ''} title={titleText}>
                         {isPhoto ? (
                           urls.length > 0 ? (
                             <button
@@ -177,12 +179,14 @@ export default function Records() {
                             '—'
                           )
                         ) : (
-                          formatValue(f.type, val, f.key)
+                          <span className="cell-truncate">{displayVal}</span>
                         )}
                       </td>
                     );
                   })}
-                  <td>{r.updated_by || r.created_by || '—'}</td>
+                  <td title={r.updated_by || r.created_by || undefined}>
+                    <span className="cell-truncate">{r.updated_by || r.created_by || '—'}</span>
+                  </td>
                   <td className="row-actions">
                     {selectedIds.size > 1 ? (
                       canEdit && (

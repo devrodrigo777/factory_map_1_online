@@ -4,13 +4,11 @@ import Shell from '../components/Shell.jsx';
 import Icon from '../components/Icons.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { useTranslation } from '../i18n/I18nContext.jsx';
-import TranslationTab from '../components/TranslationTab.jsx';
 import { formatDateTime } from '../format.js';
 
 export default function Settings() {
   const toast = useToast();
   const { t } = useTranslation();
-  const [subTab, setSubTab] = useState('general');
   const [data, setData] = useState(null);
   const fail = useCallback((e) => toast(e.message, 'error'), [toast]);
   const load = useCallback(() => api.getConfig().then(setData).catch(fail), [fail]);
@@ -24,64 +22,39 @@ export default function Settings() {
     } catch (e) { fail(e); }
   };
 
-  const subTabButtons = (
-    <div className="seg" role="group" aria-label="Seções de configurações">
-      <button
-        type="button"
-        className={`btn ${subTab === 'general' ? 'active' : ''}`}
-        onClick={() => setSubTab('general')}
-      >
-        {t('settings.tab_general', 'Geral')}
-      </button>
-      <button
-        type="button"
-        className={`btn ${subTab === 'translation' ? 'active' : ''}`}
-        onClick={() => setSubTab('translation')}
-      >
-        {t('settings.tab_translation', 'Tradução')}
-      </button>
-    </div>
-  );
-
   if (!data) return <Shell title={t('settings.title', 'Configurações')}><div className="center-screen inline"><div className="spinner" /></div></Shell>;
   const { config } = data;
 
   return (
-    <Shell title={t('settings.title', 'Configurações')} actions={subTabButtons}>
-      {subTab === 'translation' ? (
-        <div className="page">
-          <TranslationTab />
-        </div>
-      ) : (
-        <div className="page narrow">
-          <NavigationEffectsCard cfg={config.nav_effects} onSave={(v) => save('nav_effects', v, t('settings.saved_nav_effects', 'Efeitos de navegação salvos.'))} />
-          <LockColors cfg={config} onSave={(stages, days) => api.saveConfig({ lock_stages: stages, recurrence_days: days }).then((r) => { setData((d) => ({ ...d, ...r })); toast(t('settings.saved_lock_colors', 'Cores e reincidência salvas.')); }).catch(fail)} />
-          <BackupCard cfg={config.backup} status={data.backup} onSave={(v) => save('backup', v, 'Backup automático salvo.')}
-            onRun={async () => { try { const r = await api.runBackupJob(); setData((d) => ({ ...d, ...r })); toast('Backup executado.'); } catch (e) { fail(e); } }} />
-          <ImportCard cfg={config.import} status={data.import} profiles={data.profiles} onSave={(v) => save('import', v, 'Importação automática salva.')}
-            onRun={async () => { try { const r = await api.runImportJob(); setData((d) => ({ ...d, ...r })); toast(r.summary?.files ? `${r.summary.ok} importado(s), ${r.summary.error} com erro.` : 'Nenhum arquivo novo na pasta.'); } catch (e) { fail(e); } }} />
-          <section className="card">
-            <h2>{t('settings.task_logs_title', 'Registro das tarefas automáticas')}</h2>
-            {data.logs.length === 0 ? <p className="muted">{t('settings.task_logs_empty', 'Nada executado ainda.')}</p> : (
-              <div className="table-wrap tall">
-                <table className="table">
-                  <thead><tr><th>Quando</th><th>Tarefa</th><th>Resultado</th><th>Detalhe</th></tr></thead>
-                  <tbody>
-                    {data.logs.map((l) => (
-                      <tr key={l.id}>
-                        <td>{formatDateTime(l.at)}</td>
-                        <td>{l.job === 'backup' ? 'Backup' : 'Importação'}</td>
-                        <td><span className={`badge ${l.status === 'error' ? 'on' : l.status === 'warn' ? 'warn' : 'off'}`}>{l.status === 'error' ? 'Erro' : l.status === 'warn' ? 'Atenção' : 'OK'}</span></td>
-                        <td className="msg-cell">{l.message}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
-        </div>
-      )}
+    <Shell title={t('settings.title', 'Configurações')}>
+      <div className="page narrow">
+        <NavigationEffectsCard cfg={config.nav_effects} onSave={(v) => save('nav_effects', v, t('settings.saved_nav_effects', 'Efeitos de navegação salvos.'))} />
+        <LockColors cfg={config} onSave={(stages, days) => api.saveConfig({ lock_stages: stages, recurrence_days: days }).then((r) => { setData((d) => ({ ...d, ...r })); toast(t('settings.saved_lock_colors', 'Cores e reincidência salvas.')); }).catch(fail)} />
+        <BackupCard cfg={config.backup} status={data.backup} onSave={(v) => save('backup', v, 'Backup automático salvo.')}
+          onRun={async () => { try { const r = await api.runBackupJob(); setData((d) => ({ ...d, ...r })); toast('Backup executado.'); } catch (e) { fail(e); } }} />
+        <ImportCard cfg={config.import} status={data.import} profiles={data.profiles} onSave={(v) => save('import', v, 'Importação automática salva.')}
+          onRun={async () => { try { const r = await api.runImportJob(); setData((d) => ({ ...d, ...r })); toast(r.summary?.files ? `${r.summary.ok} importado(s), ${r.summary.error} com erro.` : 'Nenhum arquivo novo na pasta.'); } catch (e) { fail(e); } }} />
+        <section className="card">
+          <h2>{t('settings.task_logs_title', 'Registro das tarefas automáticas')}</h2>
+          {data.logs.length === 0 ? <p className="muted">{t('settings.task_logs_empty', 'Nada executado ainda.')}</p> : (
+            <div className="table-wrap tall">
+              <table className="table">
+                <thead><tr><th>Quando</th><th>Tarefa</th><th>Resultado</th><th>Detalhe</th></tr></thead>
+                <tbody>
+                  {data.logs.map((l) => (
+                    <tr key={l.id}>
+                      <td>{formatDateTime(l.at)}</td>
+                      <td>{l.job === 'backup' ? 'Backup' : 'Importação'}</td>
+                      <td><span className={`badge ${l.status === 'error' ? 'on' : l.status === 'warn' ? 'warn' : 'off'}`}>{l.status === 'error' ? 'Erro' : l.status === 'warn' ? 'Atenção' : 'OK'}</span></td>
+                      <td className="msg-cell" title={l.message}>{l.message}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
     </Shell>
   );
 }

@@ -14,6 +14,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Records from './pages/Records.jsx';
 import ImportPage from './pages/ImportPage.jsx';
 import Fields from './pages/Fields.jsx';
+import Translations from './pages/Translations.jsx';
 import Companies from './pages/Companies.jsx';
 import ManualPage from './pages/ManualPage.jsx';
 
@@ -33,6 +34,7 @@ export default function App() {
               <Route path="/import" element={<Protected min="operator"><ImportPage /></Protected>} />
               <Route path="/fields" element={<Protected min="admin"><Fields /></Protected>} />
               <Route path="/admin" element={<Protected min="admin"><Admin /></Protected>} />
+              <Route path="/translations" element={<Protected min="admin"><Translations /></Protected>} />
               <Route path="/reports" element={<Protected><Reports /></Protected>} />
               <Route path="/settings" element={<Protected min="admin"><Settings /></Protected>} />
               <Route path="/users" element={<Protected min="admin"><Users /></Protected>} />

@@ -13,6 +13,7 @@ const tabs = [
   ['/import', 'nav.import_excel', 'Importar Excel', 'operator'],
   ['/fields', 'nav.fields_kpis', 'Campos e KPIs', 'admin'],
   ['/admin', 'nav.plants_areas', 'Plantas e áreas', 'admin'],
+  ['/translations', 'nav.translation', 'Tradução', 'admin'],
   ['/settings', 'nav.settings', 'Configurações', 'admin'],
   ['/users', 'nav.users', 'Usuários', 'admin'],
   ['/companies', 'nav.companies', 'Empresas & Contas', 'globaladmin'],

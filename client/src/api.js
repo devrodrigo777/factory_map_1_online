@@ -1,6 +1,6 @@
 const RESERVED_PATHS = new Set([
   'login', 'dashboard', 'records', 'import', 'fields', 'admin',
-  'reports', 'settings', 'users', 'companies', 'backup', 'api', 'uploads'
+  'reports', 'settings', 'users', 'companies', 'backup', 'api', 'uploads', 'translations'
 ]);
 
 export function getCompanyFromPath(pathname) {
@@ -28,7 +28,9 @@ async function request(url, options = {}) {
     throw new Error('Não foi possível falar com o servidor. Verifique se ele está rodando.');
   }
   if (!res.ok) {
-    if (res.status === 401 && !url.startsWith('/api/auth/')) window.dispatchEvent(new Event('auth:expired'));
+    if (res.status === 401 && !url.startsWith('/api/auth/') && !url.startsWith('/api/translations/')) {
+      window.dispatchEvent(new Event('auth:expired'));
+    }
     let data = {};
     try {
       data = await res.json();
@@ -179,7 +181,8 @@ export const api = {
   addLanguage: (code) => request('/api/translations/languages', json('POST', { code })),
   removeLanguage: (code) => request(`/api/translations/languages/${code}`, { method: 'DELETE' }),
   saveTranslations: (code, terms) => request(`/api/translations/${code}`, json('PUT', { terms })),
-  saveAiKey: (key) => request('/api/translations/ai-key', json('POST', { key })),
+  saveAiKey: (key, provider = 'groq') => request('/api/translations/ai-key', json('POST', { key, provider })),
+  deleteAiKey: () => request('/api/translations/ai-key', { method: 'DELETE' }),
   aiTranslate: (targetLang, terms) => request('/api/translations/ai-translate', json('POST', { targetLang, terms })),
   importTranslations: (code, translations) => request(`/api/translations/import/${code}`, json('POST', { translations })),
   getExportTranslationsUrl: (code) => `/api/translations/export/${code}`,
