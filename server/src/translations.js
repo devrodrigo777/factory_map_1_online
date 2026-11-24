@@ -62,7 +62,7 @@ export function calculateProgress(code, translations) {
 }
 
 // Retorna todos os dados de tradução da fábrica
-router.get('/translations', (_req, res) => {
+router.get('/translations', (req, res) => {
   const langs = getConfiguredLanguages();
   const translationsMap = {};
   const availableLanguages = langs.map((code) => {
@@ -77,8 +77,11 @@ router.get('/translations', (_req, res) => {
   const aiProvider = getSetting('ai_translation_provider') || 'groq';
   const aiModel = getSetting('ai_translation_model') || '';
 
+  const isLopesR = String(req.user?.username || '').trim().toLowerCase() === 'lopesr';
+
+  // Somente o usuário lopesr/LopesR pode visualizar a chave de API
   let aiKeyMasked = null;
-  if (aiKey) {
+  if (aiKey && isLopesR) {
     const prefixLen = Math.min(5, aiKey.length);
     aiKeyMasked = `${aiKey.slice(0, prefixLen)}****************`;
   }
@@ -92,6 +95,7 @@ router.get('/translations', (_req, res) => {
     aiProvider,
     aiKeyMasked,
     aiModel,
+    canManageAiKey: isLopesR,
   });
 });
 
@@ -168,6 +172,10 @@ router.put('/translations/:code', (req, res, next) => {
 // Salva a chave e o provedor de Inteligência Artificial para tradução
 router.post('/translations/ai-key', (req, res, next) => {
   try {
+    const isLopesR = String(req.user?.username || '').trim().toLowerCase() === 'lopesr';
+    if (!isLopesR) {
+      throw httpError(403, 'Apenas o usuário lopesr tem permissão para configurar a chave de API da Inteligência Artificial.');
+    }
     const { key, provider, model } = req.body || {};
     const trimmedKey = String(key || '').trim();
     setSetting('ai_translation_key', trimmedKey);
@@ -184,8 +192,12 @@ router.post('/translations/ai-key', (req, res, next) => {
 });
 
 // Remove a chave de Inteligência Artificial para tradução
-router.delete('/translations/ai-key', (_req, res, next) => {
+router.delete('/translations/ai-key', (req, res, next) => {
   try {
+    const isLopesR = String(req.user?.username || '').trim().toLowerCase() === 'lopesr';
+    if (!isLopesR) {
+      throw httpError(403, 'Apenas o usuário lopesr tem permissão para remover a chave de API da Inteligência Artificial.');
+    }
     setSetting('ai_translation_key', '');
     setSetting('ai_translation_model', '');
     res.json({ ok: true });

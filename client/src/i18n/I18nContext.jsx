@@ -30,6 +30,7 @@ export function I18nProvider({ children }) {
   const [aiKeyMasked, setAiKeyMasked] = useState(null);
   const [aiProvider, setAiProvider] = useState('groq');
   const [aiModel, setAiModel] = useState('');
+  const [canManageAiKey, setCanManageAiKey] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const reloadTranslations = useCallback(async () => {
@@ -52,6 +53,7 @@ export function I18nProvider({ children }) {
       setAiKeyMasked(data?.aiKeyMasked || null);
       setAiProvider(data?.aiProvider || 'groq');
       setAiModel(data?.aiModel || '');
+      setCanManageAiKey(!!data?.canManageAiKey);
     } catch {
       // Falha silenciosa em offline sem rede
     } finally {
@@ -124,6 +126,7 @@ export function I18nProvider({ children }) {
       aiKeyMasked,
       aiProvider,
       aiModel,
+      canManageAiKey,
       loading,
       t,
       reloadTranslations,
@@ -138,6 +141,7 @@ export function I18nProvider({ children }) {
       aiKeyMasked,
       aiProvider,
       aiModel,
+      canManageAiKey,
       loading,
       t,
       reloadTranslations,

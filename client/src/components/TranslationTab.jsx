@@ -4,12 +4,14 @@ import Icon from './Icons.jsx';
 import Modal from './Modal.jsx';
 import { useToast } from './Toast.jsx';
 import { useConfirm } from './ConfirmModal.jsx';
+import { useAuth } from './Auth.jsx';
 import { useTranslation } from '../i18n/I18nContext.jsx';
 import { DEFAULT_LANGUAGE } from '../i18n/keys.js';
 
 export default function TranslationTab() {
   const toast = useToast();
   const confirm = useConfirm();
+  const { user } = useAuth();
   const {
     masterTerms,
     supportedLanguages,
@@ -20,8 +22,12 @@ export default function TranslationTab() {
     aiKeyMasked,
     aiProvider,
     aiModel,
+    canManageAiKey,
     t,
   } = useTranslation();
+
+  // Controle de segurança: somente lopesr ou LopesR pode visualizar e editar a Chave de API
+  const isLopesR = String(user?.username || '').trim().toLowerCase() === 'lopesr' || Boolean(canManageAiKey);
 
   const fileInputRef = useRef(null);
 
@@ -194,8 +200,8 @@ export default function TranslationTab() {
 
     setBatchTranslating(true);
     try {
-      // Divide em lotes de 20 termos para não estourar tokens
-      const chunkSize = 20;
+      // Divide em lotes de 10 termos para atualização dinâmica e visual contínua
+      const chunkSize = 10;
       let totalTranslated = 0;
       for (let i = 0; i < pendingTerms.length; i += chunkSize) {
         const chunk = pendingTerms.slice(i, i + chunkSize);
@@ -204,12 +210,15 @@ export default function TranslationTab() {
           chunk.map((t) => ({ key: t.key, text: t.text, context: t.context }))
         );
         if (res.translations && Object.keys(res.translations).length > 0) {
+          // 1. Salva imediatamente no banco de dados para persistir os termos
           await api.saveTranslations(selectedLang, res.translations);
-          totalTranslated += Object.keys(res.translations).length;
+          // 2. Preenche os campos de textos na tabela
           setEditingValues((prev) => ({ ...prev, ...res.translations }));
+          // 3. Atualiza os dados e a porcentagem imediatamente
+          await reloadTranslations();
+          totalTranslated += Object.keys(res.translations).length;
         }
       }
-      await reloadTranslations();
       toast(
         t('translation.ai_translated_batch_success', { count: totalTranslated }) ||
           `${totalTranslated} termos traduzidos com Inteligência Artificial.`
@@ -429,115 +438,27 @@ export default function TranslationTab() {
 
         {/* Configuração colapsável da Chave e Modelo de IA */}
         {aiCardOpen && (
-          aiKeyMasked && !isEditingAiKey ? (
+          !isLopesR ? (
+            /* Visualização restrita para outros usuários: visualizam apenas o Modelo de IA ativo */
             <div className="ai-key-config-box">
               <div className="ai-key-header">
                 <strong>{t('translation.ai_key_title', 'Configuração da Inteligência Artificial')}</strong>
                 <small className="muted">
-                  {t(
-                    'translation.ai_key_configured_desc',
-                    'Chave e modelo de Inteligência Artificial configurados e ativos para traduções instantâneas.'
-                  )}
+                  Consulte o modelo de Inteligência Artificial ativo para traduções automáticas do sistema.
                 </small>
               </div>
 
-              {/* Linha 1: Chave de API */}
-              <div className="ai-config-row">
-                <span className="ai-row-label">Chave de API:</span>
-                <select
-                  className="ai-provider-select"
-                  value={selectedProvider}
-                  disabled
-                  title="Provedor de IA selecionado"
-                >
-                  <option value="groq">Groq</option>
-                </select>
-                <div className="ai-key-masked-box" title="Chave de API configurada">
-                  <span className="ai-key-masked-label">{aiKeyMasked}</span>
-                </div>
-                <button
-                  type="button"
-                  className="btn icon ghost"
-                  onClick={() => {
-                    setIsEditingAiKey(true);
-                    setAiKeyInput('');
-                  }}
-                  title="Editar chave de API"
-                  aria-label="Editar chave de API"
-                >
-                  <Icon name="edit" />
-                </button>
-                <button
-                  type="button"
-                  className="btn icon ghost danger"
-                  onClick={handleDeleteAiKey}
-                  title="Remover chave de API"
-                  aria-label="Remover chave de API"
-                >
-                  <Icon name="trash" />
-                </button>
-              </div>
+              {!aiConfigured && (
+                <p className="notice" style={{ margin: 0 }}>
+                  A Chave de API de Inteligência Artificial ainda não foi configurada. Somente o usuário <strong>lopesr</strong> possui permissão para gerenciar e editar a chave de API.
+                </p>
+              )}
 
-              {/* Linha 2: Modelo de IA */}
               <div className="ai-config-row">
                 <span className="ai-row-label">{t('translation.ai_model_label', 'Modelo de IA:')}</span>
-                {aiModel && !isEditingModel ? (
-                  <>
-                    <div className="ai-model-label-box" title="Modelo de Inteligência Artificial selecionado">
-                      <span className="ai-model-label">{aiModel}</span>
-                    </div>
-                    <button
-                      type="button"
-                      className="btn icon ghost"
-                      onClick={handleStartEditModel}
-                      disabled={loadingModels}
-                      title="Alterar modelo de IA"
-                      aria-label="Alterar modelo de IA"
-                    >
-                      <Icon name="edit" />
-                    </button>
-                  </>
-                ) : (
-                  <div className="ai-model-edit-wrap">
-                    <select
-                      className="ai-model-select"
-                      value={selectedModel}
-                      onChange={(e) => setSelectedModel(e.target.value)}
-                      disabled={loadingModels || savingModel}
-                      title="Selecione o modelo desejado"
-                    >
-                      {loadingModels ? (
-                        <option value="">Consultando modelos disponíveis no Groq…</option>
-                      ) : availableModels.length === 0 ? (
-                        <option value="">Nenhum modelo disponível retornado</option>
-                      ) : (
-                        availableModels.map((m) => (
-                          <option key={m.id} value={m.id}>
-                            {m.id} {m.owned_by ? `(${m.owned_by})` : ''}
-                          </option>
-                        ))
-                      )}
-                    </select>
-                    <button
-                      type="button"
-                      className="btn primary"
-                      onClick={handleSaveModel}
-                      disabled={savingModel || loadingModels || !selectedModel}
-                    >
-                      {savingModel ? 'Salvando…' : t('translation.save_ai_model', 'Salvar modelo')}
-                    </button>
-                    {aiModel && (
-                      <button
-                        type="button"
-                        className="btn ghost"
-                        onClick={() => setIsEditingModel(false)}
-                        disabled={savingModel}
-                      >
-                        Cancelar
-                      </button>
-                    )}
-                  </div>
-                )}
+                <div className="ai-model-label-box" title="Modelo de Inteligência Artificial ativo">
+                  <span className="ai-model-label">{aiModel || 'Nenhum modelo configurado'}</span>
+                </div>
               </div>
 
               <div className="ai-config-footer">
@@ -546,54 +467,178 @@ export default function TranslationTab() {
                   className="btn ghost small-btn"
                   onClick={() => setAiCardOpen(false)}
                 >
-                  Fechar configuração
+                  Fechar
                 </button>
               </div>
             </div>
           ) : (
-            <form className="ai-key-config-box" onSubmit={handleSaveAiKey}>
-              <div className="ai-key-header">
-                <strong>{t('translation.ai_key_title', 'Chave de Acesso da Inteligência Artificial')}</strong>
-                <small className="muted">
-                  {t(
-                    'translation.ai_key_desc',
-                    'Informe sua chave para habilitar a tradução automatizada instantânea de termos.'
+            /* Controle total para o login lopesr / LopesR */
+            aiKeyMasked && !isEditingAiKey ? (
+              <div className="ai-key-config-box">
+                <div className="ai-key-header">
+                  <strong>{t('translation.ai_key_title', 'Configuração da Inteligência Artificial')}</strong>
+                  <small className="muted">
+                    {t(
+                      'translation.ai_key_configured_desc',
+                      'Chave e modelo de Inteligência Artificial configurados e ativos para traduções instantâneas.'
+                    )}
+                  </small>
+                </div>
+
+                {/* Linha 1: Chave de API */}
+                <div className="ai-config-row">
+                  <span className="ai-row-label">Chave de API:</span>
+                  <select
+                    className="ai-provider-select"
+                    value={selectedProvider}
+                    disabled
+                    title="Provedor de IA selecionado"
+                  >
+                    <option value="groq">Groq</option>
+                  </select>
+                  <div className="ai-key-masked-box" title="Chave de API configurada">
+                    <span className="ai-key-masked-label">{aiKeyMasked}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn icon ghost"
+                    onClick={() => {
+                      setIsEditingAiKey(true);
+                      setAiKeyInput('');
+                    }}
+                    title="Editar chave de API"
+                    aria-label="Editar chave de API"
+                  >
+                    <Icon name="edit" />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn icon ghost danger"
+                    onClick={handleDeleteAiKey}
+                    title="Remover chave de API"
+                    aria-label="Remover chave de API"
+                  >
+                    <Icon name="trash" />
+                  </button>
+                </div>
+
+                {/* Linha 2: Modelo de IA */}
+                <div className="ai-config-row">
+                  <span className="ai-row-label">{t('translation.ai_model_label', 'Modelo de IA:')}</span>
+                  {aiModel && !isEditingModel ? (
+                    <>
+                      <div className="ai-model-label-box" title="Modelo de Inteligência Artificial selecionado">
+                        <span className="ai-model-label">{aiModel}</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn icon ghost"
+                        onClick={handleStartEditModel}
+                        disabled={loadingModels}
+                        title="Alterar modelo de IA"
+                        aria-label="Alterar modelo de IA"
+                      >
+                        <Icon name="edit" />
+                      </button>
+                    </>
+                  ) : (
+                    <div className="ai-model-edit-wrap">
+                      <select
+                        className="ai-model-select"
+                        value={selectedModel}
+                        onChange={(e) => setSelectedModel(e.target.value)}
+                        disabled={loadingModels || savingModel}
+                        title="Selecione o modelo desejado"
+                      >
+                        {loadingModels ? (
+                          <option value="">Consultando modelos disponíveis no Groq…</option>
+                        ) : availableModels.length === 0 ? (
+                          <option value="">Nenhum modelo disponível retornado</option>
+                        ) : (
+                          availableModels.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.id} {m.owned_by ? `(${m.owned_by})` : ''}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      <button
+                        type="button"
+                        className="btn primary"
+                        onClick={handleSaveModel}
+                        disabled={savingModel || loadingModels || !selectedModel}
+                      >
+                        {savingModel ? 'Salvando…' : t('translation.save_ai_model', 'Salvar modelo')}
+                      </button>
+                      {aiModel && (
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          onClick={() => setIsEditingModel(false)}
+                          disabled={savingModel}
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                    </div>
                   )}
-                </small>
+                </div>
+
+                <div className="ai-config-footer">
+                  <button
+                    type="button"
+                    className="btn ghost small-btn"
+                    onClick={() => setAiCardOpen(false)}
+                  >
+                    Fechar configuração
+                  </button>
+                </div>
               </div>
-              <div className="ai-key-input-row">
-                <select
-                  className="ai-provider-select"
-                  value={selectedProvider}
-                  onChange={(e) => setSelectedProvider(e.target.value)}
-                  title="Selecione o provedor de IA"
-                >
-                  <option value="groq">Groq</option>
-                </select>
-                <input
-                  type="password"
-                  className="ai-key-input"
-                  placeholder={t('translation.ai_key_placeholder', 'Cole sua chave de API aqui…')}
-                  value={aiKeyInput}
-                  onChange={(e) => setAiKeyInput(e.target.value)}
-                  autoComplete="off"
-                />
-                <button type="submit" className="btn primary" disabled={savingAiKey || !aiKeyInput.trim()}>
-                  {savingAiKey ? 'Salvando…' : t('translation.save_ai_key', 'Salvar chave')}
-                </button>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  onClick={() => {
-                    setIsEditingAiKey(false);
-                    setAiKeyInput('');
-                    if (!aiKeyMasked) setAiCardOpen(false);
-                  }}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
+            ) : (
+              <form className="ai-key-config-box" onSubmit={handleSaveAiKey}>
+                <div className="ai-key-header">
+                  <strong>{t('translation.ai_key_title', 'Chave de Acesso da Inteligência Artificial')}</strong>
+                  <small className="muted">
+                    {t(
+                      'translation.ai_key_desc',
+                      'Informe sua chave para habilitar a tradução automatizada instantânea de termos.'
+                    )}
+                  </small>
+                </div>
+                <div className="ai-key-input-row">
+                  <select
+                    className="ai-provider-select"
+                    value={selectedProvider}
+                    onChange={(e) => setSelectedProvider(e.target.value)}
+                    title="Selecione o provedor de IA"
+                  >
+                    <option value="groq">Groq</option>
+                  </select>
+                  <input
+                    type="password"
+                    className="ai-key-input"
+                    placeholder={t('translation.ai_key_placeholder', 'Cole sua chave de API aqui…')}
+                    value={aiKeyInput}
+                    onChange={(e) => setAiKeyInput(e.target.value)}
+                    autoComplete="off"
+                  />
+                  <button type="submit" className="btn primary" disabled={savingAiKey || !aiKeyInput.trim()}>
+                    {savingAiKey ? 'Salvando…' : t('translation.save_ai_key', 'Salvar chave')}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    onClick={() => {
+                      setIsEditingAiKey(false);
+                      setAiKeyInput('');
+                      if (!aiKeyMasked) setAiCardOpen(false);
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            )
           )
         )}
 
@@ -633,14 +678,14 @@ export default function TranslationTab() {
                 <div className="lang-card-progress-wrap">
                   <div className="lang-progress-labels">
                     <small className="muted">{t('translation.completion_rate', 'Progresso')}</small>
-                    <strong className={lang.percentage === 100 ? 'text-success' : ''}>
-                      {lang.percentage}%
+                    <strong className={(isSelected ? stats.percentage : lang.percentage) === 100 ? 'text-success' : ''}>
+                      {isSelected ? stats.percentage : lang.percentage}%
                     </strong>
                   </div>
                   <div className="lang-progress-bar">
                     <div
-                      className={`lang-progress-fill ${lang.percentage === 100 ? 'complete' : ''}`}
-                      style={{ width: `${lang.percentage}%` }}
+                      className={`lang-progress-fill ${(isSelected ? stats.percentage : lang.percentage) === 100 ? 'complete' : ''}`}
+                      style={{ width: `${isSelected ? stats.percentage : lang.percentage}%` }}
                     />
                   </div>
                 </div>
