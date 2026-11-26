@@ -43,9 +43,6 @@ export default function App() {
               <Route path="/:company" element={<Protected publicOk><Viewer /></Protected>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
-            <div className="app-watermark" aria-hidden="true">
-              Desenvolvido e Implementado por Rodrigo Lopes • Estagiário de Engenharia de Software
-            </div>
             </AuthProvider>
           </ConfirmProvider>
         </ToastProvider>

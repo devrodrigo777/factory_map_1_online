@@ -165,13 +165,15 @@ export const api = {
     fd.append('file', file);
     return request('/api/import/preview', { method: 'POST', body: fd });
   },
-  importConfirm: (file, sheet, mapping, skipDuplicates, dedupMode, dedupFields) => {
+  importConfirm: (file, sheet, mapping, skipDuplicates, dedupMode, dedupFields, filterExpr = '', resolutions = null) => {
     const fd = new FormData();
     fd.append('sheet', sheet || '');
     fd.append('mapping', JSON.stringify(mapping));
     fd.append('skipDuplicates', String(skipDuplicates));
     if (dedupMode) fd.append('dedupMode', dedupMode);
     if (dedupFields) fd.append('dedupFields', JSON.stringify(dedupFields));
+    if (filterExpr && filterExpr.trim()) fd.append('filterExpr', filterExpr.trim());
+    if (resolutions) fd.append('resolutions', JSON.stringify(resolutions));
     fd.append('file', file);
     return request('/api/import', { method: 'POST', body: fd });
   },

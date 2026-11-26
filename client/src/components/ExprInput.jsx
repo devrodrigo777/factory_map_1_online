@@ -84,7 +84,7 @@ export function tokenizeCode(code) {
  * Editor de código para expressões com destaque sintático, numeração de linhas,
  * suporte a indentação por tecla Tab, autocomplete inteligente e testes ao vivo.
  */
-export default function ExprInput({ value = '', onChange, fields = [], rows = 2, placeholder, builder = true }) {
+export default function ExprInput({ value = '', onChange, fields = [], rows = 2, placeholder, builder = true, liveTest = true }) {
   const [test, setTest] = useState(null);
   const [fieldKey, setFieldKey] = useState('');
   const [values, setValues] = useState([]);
@@ -99,21 +99,21 @@ export default function ExprInput({ value = '', onChange, fields = [], rows = 2,
 
   // Teste ao vivo da expressão digitada
   useEffect(() => {
-    if (!value || !value.trim()) { setTest(null); return; }
+    if (!liveTest || !value || !value.trim()) { setTest(null); return; }
     let stop = false;
     const t = setTimeout(() => {
       api.testExpr(value).then((r) => !stop && setTest(r)).catch(() => {});
     }, 450);
     return () => { stop = true; clearTimeout(t); };
-  }, [value]);
+  }, [value, liveTest]);
 
   useEffect(() => {
     setVal('');
-    if (!fieldKey) { setValues([]); return; }
+    if (!fieldKey || !liveTest) { setValues([]); return; }
     let stop = false;
     api.fieldValues(fieldKey).then((v) => !stop && setValues(v)).catch(() => setValues([]));
     return () => { stop = true; };
-  }, [fieldKey]);
+  }, [fieldKey, liveTest]);
 
   const tokens = useMemo(() => tokenizeCode(value || ''), [value]);
   const linesCount = Math.max((value || '').split('\n').length, rows || 2);

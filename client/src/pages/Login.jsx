@@ -212,6 +212,9 @@ export default function Login() {
           </div>
         </Modal>
       )}
+      <div className="app-watermark" aria-hidden="true">
+        Desenvolvido e Implementado por Rodrigo Lopes • Estagiário de Engenharia de Software
+      </div>
     </main>
   );
 }

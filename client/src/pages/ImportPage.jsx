@@ -2,9 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import Shell from '../components/Shell.jsx';
 import Icon from '../components/Icons.jsx';
+import Modal from '../components/Modal.jsx';
+import ExprInput from '../components/ExprInput.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../components/ConfirmModal.jsx';
-import { formatInt } from '../format.js';
+import { formatInt, formatValue } from '../format.js';
 
 const TYPE_LABEL = { text: 'Texto', number: 'Número', date: 'Data/hora' };
 const nrm = (s) => String(s ?? '').trim().toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
@@ -50,6 +52,10 @@ export default function ImportPage() {
   const [dedupFields, setDedupFields] = useState([]); // [{ key, label }]
   const [dedupDropdownOpen, setDedupDropdownOpen] = useState(false);
   const dedupDropdownRef = useRef(null);
+  const [filterEnabled, setFilterEnabled] = useState(false);
+  const [filterExpr, setFilterExpr] = useState('');
+  const [conflictModal, setConflictModal] = useState(null); // { conflicts, summary }
+  const [resolutions, setResolutions] = useState({});
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
@@ -85,6 +91,11 @@ export default function ImportPage() {
   }, [dedupDropdownOpen]);
 
   const baseFields = useMemo(() => fields.filter((f) => !f.computed), [fields]);
+
+  const excelExprFields = useMemo(() => {
+    if (!preview) return [];
+    return preview.columns.map((c) => ({ key: String(c.index), label: c.name, type: c.type }));
+  }, [preview]);
 
   const activeColumns = useMemo(() => {
     if (!preview) return [];
@@ -276,11 +287,28 @@ export default function ImportPage() {
 
   const importable = preview ? Object.values(map).filter((m) => m.action !== 'ignore').length : 0;
 
-  const run = async () => {
+  const run = async (resolutionsOverride = null) => {
     setBusy(true);
     try {
       const mapping = preview.columns.map((c) => ({ index: c.index, ...map[c.index] }));
-      const r = await api.importConfirm(file, preview.sheet, mapping, skipDup, dedupMode, selectedActiveDedup);
+      const r = await api.importConfirm(
+        file,
+        preview.sheet,
+        mapping,
+        skipDup,
+        dedupMode,
+        selectedActiveDedup,
+        filterEnabled ? filterExpr : '',
+        resolutionsOverride
+      );
+      if (r.needs_resolution) {
+        const initRes = {};
+        for (const cf of r.conflicts) initRes[String(cf.rowNumber)] = 'keep_existing';
+        setResolutions(initRes);
+        setConflictModal({ conflicts: r.conflicts, summary: r.summary });
+        return;
+      }
+      setConflictModal(null);
       setResult(r);
       setPreview(null);
       setFile(null);
@@ -341,7 +369,9 @@ export default function ImportPage() {
             <h2>Importação concluída</h2>
             <p>
               <strong>{formatInt(result.imported)}</strong> registros adicionados
+              {result.updated > 0 && <>, <strong>{formatInt(result.updated)}</strong> atualizados</>}
               {result.skipped_duplicates > 0 && <>, {formatInt(result.skipped_duplicates)} repetidos ignorados</>}
+              {result.filtered_out > 0 && <>, {formatInt(result.filtered_out)} filtrados fora</>}
               {result.skipped_empty > 0 && <>, {formatInt(result.skipped_empty)} linhas vazias ignoradas</>}.
             </p>
             {result.created_fields.length > 0 && (
@@ -417,6 +447,27 @@ export default function ImportPage() {
                 {profiles.some((p) => nrm(p.name) === nrm(profileName)) ? 'Atualizar perfil' : 'Salvar como perfil'}
               </button>
               {profileId && <button className="btn danger" onClick={deleteProfile}>Excluir perfil</button>}
+            </div>
+            <div className="import-filter-section">
+              <label className="check">
+                <input type="checkbox" checked={filterEnabled} onChange={(e) => setFilterEnabled(e.target.checked)} />
+                Filtrar dados da planilha por condição (expressão)
+              </label>
+              {filterEnabled && (
+                <div className="import-filter-box">
+                  <ExprInput
+                    value={filterExpr}
+                    onChange={setFilterExpr}
+                    fields={excelExprFields}
+                    liveTest={false}
+                    placeholder={'Ex.: [status] == "Concluída"'}
+                    rows={2}
+                  />
+                  <small className="muted">
+                    Use os nomes das colunas da planilha entre colchetes. Linhas com resultado falso serão descartadas antes da verificação de duplicação.
+                  </small>
+                </div>
+              )}
             </div>
             <div className="dedup-section">
               <label className="check">
@@ -507,7 +558,7 @@ export default function ImportPage() {
               )}
             </div>
             <div className="row">
-              <button className="btn primary" onClick={run} disabled={busy || importable === 0}>
+              <button className="btn primary" onClick={() => run(null)} disabled={busy || importable === 0}>
                 {busy ? 'Importando…' : `Importar ${formatInt(preview.row_count)} linhas`}
               </button>
               <button className="btn" onClick={() => { setPreview(null); setFile(null); }}>Cancelar</button>
@@ -537,6 +588,112 @@ export default function ImportPage() {
           )}
         </section>
       </div>
+
+      {conflictModal && (
+        <Modal
+          title={`Resolver duplicações com diferenças (${conflictModal.conflicts.length})`}
+          onClose={() => !busy && setConflictModal(null)}
+        >
+          <div className="conflict-modal-body">
+            <p className="muted" style={{ margin: 0 }}>
+              Foram encontradas <strong>{conflictModal.conflicts.length}</strong> linha(s) que já existem no sistema pelos campos de identificação, mas possuem alterações em outras colunas. Escolha qual versão deseja manter para cada registro:
+            </p>
+            <div className="conflict-summary-bar">
+              <span>Novos: <strong>{formatInt(conflictModal.summary.new_records)}</strong></span>
+              <span>Idênticos (ignorados): <strong>{formatInt(conflictModal.summary.exact_duplicates)}</strong></span>
+              {conflictModal.summary.filtered_out > 0 && (
+                <span>Filtrados fora: <strong>{formatInt(conflictModal.summary.filtered_out)}</strong></span>
+              )}
+              <div className="spacer" />
+              <button
+                type="button"
+                className="btn small-btn"
+                onClick={() => {
+                  const next = {};
+                  conflictModal.conflicts.forEach((c) => { next[String(c.rowNumber)] = 'keep_existing'; });
+                  setResolutions(next);
+                }}
+              >
+                Manter existentes em todos
+              </button>
+              <button
+                type="button"
+                className="btn small-btn"
+                onClick={() => {
+                  const next = {};
+                  conflictModal.conflicts.forEach((c) => { next[String(c.rowNumber)] = 'use_new'; });
+                  setResolutions(next);
+                }}
+              >
+                Usar novas versões em todos
+              </button>
+            </div>
+
+            <div className="conflict-list">
+              {conflictModal.conflicts.map((cf) => {
+                const choice = resolutions[String(cf.rowNumber)] || 'keep_existing';
+                return (
+                  <div key={cf.rowNumber} className="conflict-card">
+                    <div className="conflict-card-head">
+                      <div>
+                        <span className="badge off">Linha {cf.rowNumber}</span>
+                        <strong style={{ marginLeft: 8 }}>{cf.keySummary}</strong>
+                      </div>
+                      <div className="seg" role="group">
+                        <button
+                          type="button"
+                          className={`btn small-btn ${choice === 'keep_existing' ? 'active' : ''}`}
+                          onClick={() => setResolutions((r) => ({ ...r, [String(cf.rowNumber)]: 'keep_existing' }))}
+                        >
+                          Manter existente
+                        </button>
+                        <button
+                          type="button"
+                          className={`btn small-btn ${choice === 'use_new' ? 'active' : ''}`}
+                          onClick={() => setResolutions((r) => ({ ...r, [String(cf.rowNumber)]: 'use_new' }))}
+                        >
+                          Usar nova versão
+                        </button>
+                      </div>
+                    </div>
+                    <table className="table conflict-diff-table">
+                      <thead>
+                        <tr>
+                          <th>Campo alterado</th>
+                          <th>Existente no sistema</th>
+                          <th>Nova (planilha)</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cf.diffs.map((d) => (
+                          <tr key={d.key}>
+                            <td><strong>{d.label}</strong></td>
+                            <td className={choice === 'keep_existing' ? 'diff-chosen' : 'diff-old'}>
+                              {formatValue(d.type, d.existing, d.key)}
+                            </td>
+                            <td className={choice === 'use_new' ? 'diff-chosen' : 'diff-new'}>
+                              {formatValue(d.type, d.incoming, d.key)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="row" style={{ justifyContent: 'flex-end' }}>
+              <button type="button" className="btn" onClick={() => setConflictModal(null)} disabled={busy}>
+                Cancelar
+              </button>
+              <button type="button" className="btn primary" onClick={() => run(resolutions)} disabled={busy}>
+                {busy ? 'Aplicando…' : 'Confirmar e concluir importação'}
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </Shell>
   );
 }

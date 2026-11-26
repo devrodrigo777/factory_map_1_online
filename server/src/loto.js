@@ -693,121 +693,270 @@ router.put('/import/dedup-config', (req, res) => {
 });
 
 // Núcleo da importação (usado pela tela e pela importação automática).
-export function importRows({ headers, rows, filename, sheet, mapping, skipDuplicates = true, dedupMode, dedupFields, userName = '' }) {
+export function importRows({
+  headers, rows, filename, sheet, mapping,
+  skipDuplicates = true, dedupMode, dedupFields,
+  filterExpr = '', resolutions = null, userName = '',
+}) {
   const ctx = buildCtx();
   const used = new Set();
   const cols = []; // { index, field }
+  const newFieldsToCreate = []; // { key, type, label }
   const created = [];
   const savedDedup = getImportDedupConfig();
   const effMode = (dedupMode || savedDedup.mode) === 'custom' ? 'custom' : 'auto';
   const effFields = Array.isArray(dedupFields) ? dedupFields : savedDedup.fields;
 
-  const result = db.transaction(() => {
-    for (const m of mapping) {
-      if (m.action === 'map') {
-        const f = ctx.base.find((x) => x.key === m.field);
-        if (!f) throw httpError(400, 'Um campo escolhido no mapeamento não existe mais.');
-        if (used.has(f.key)) throw httpError(400, `Duas colunas foram ligadas ao mesmo campo: ${f.label}.`);
-        used.add(f.key);
-        cols.push({ index: m.index, field: f });
-      } else if (m.action === 'new') {
-        const label = String(m.label || headers[m.index] || '').trim().slice(0, 80);
-        if (!label) throw httpError(400, 'Dê um nome para o novo campo.');
-        const type = TYPES.includes(m.type) ? m.type : 'text';
-        // se já existe um campo com esse nome (ex.: criado em importação anterior), reutiliza
-        const same = ctx.base.find((x) => norm(x.label) === norm(label));
-        if (same) {
-          if (used.has(same.key)) throw httpError(400, `Duas colunas foram ligadas ao mesmo campo: ${same.label}.`);
-          used.add(same.key);
-          cols.push({ index: m.index, field: same });
-          continue;
-        }
-        const key = uniqueKey(label);
-        const order = db.prepare('SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM fields').get().n;
-        db.prepare('INSERT INTO fields (key, label, type, sort_order) VALUES (?, ?, ?, ?)').run(key, label, type, order);
-        created.push(label);
-        used.add(key);
-        ctx.base.push({ key, type, label });
-        cols.push({ index: m.index, field: { key, type, label } });
+  // Compila expressão de filtro (referenciando os nomes das colunas da planilha)
+  let filterFn = null;
+  if (filterExpr && String(filterExpr).trim()) {
+    const excelIx = new Map();
+    for (let i = 0; i < headers.length; i++) {
+      const h = String(headers[i] ?? '').trim();
+      if (h) excelIx.set(norm(h), String(i));
+    }
+    filterFn = compile(String(filterExpr).trim(), excelIx);
+  }
+
+  for (const m of mapping) {
+    if (m.action === 'map') {
+      const f = ctx.base.find((x) => x.key === m.field);
+      if (!f) throw httpError(400, 'Um campo escolhido no mapeamento não existe mais.');
+      if (used.has(f.key)) throw httpError(400, `Duas colunas foram ligadas ao mesmo campo: ${f.label}.`);
+      used.add(f.key);
+      cols.push({ index: m.index, field: f });
+    } else if (m.action === 'new') {
+      const label = String(m.label || headers[m.index] || '').trim().slice(0, 80);
+      if (!label) throw httpError(400, 'Dê um nome para o novo campo.');
+      const type = TYPES.includes(m.type) ? m.type : 'text';
+      const same = ctx.base.find((x) => norm(x.label) === norm(label));
+      if (same) {
+        if (used.has(same.key)) throw httpError(400, `Duas colunas foram ligadas ao mesmo campo: ${same.label}.`);
+        used.add(same.key);
+        cols.push({ index: m.index, field: same });
+        continue;
+      }
+      const key = uniqueKey(label);
+      const fieldObj = { key, type, label };
+      created.push(label);
+      used.add(key);
+      ctx.base.push(fieldObj);
+      newFieldsToCreate.push(fieldObj);
+      cols.push({ index: m.index, field: fieldObj });
+    }
+  }
+  if (!cols.length) throw httpError(400, 'Nenhuma coluna foi selecionada para importar.');
+
+  // Resolve quais chaves de campos compõem a verificação personalizada de duplicação
+  const customKeys = [];
+  if (effMode === 'custom' && effFields.length > 0) {
+    for (const c of cols) {
+      const matched = effFields.some((tf) => {
+        const tk = typeof tf === 'string' ? tf : String(tf.key || '');
+        const tl = typeof tf === 'string' ? tf : String(tf.label || '');
+        return (
+          (tk && tk === c.field.key) ||
+          (tk && tk === `new:${norm(c.field.label)}`) ||
+          (tl && norm(tl) === norm(c.field.label)) ||
+          (tl && headers[c.index] !== undefined && norm(tl) === norm(headers[c.index]))
+        );
+      });
+      if (matched && !customKeys.includes(c.field.key)) {
+        customKeys.push(c.field.key);
       }
     }
-    if (!cols.length) throw httpError(400, 'Nenhuma coluna foi selecionada para importar.');
+  }
 
-    // Resolve quais chaves de campos compõem a verificação personalizada de duplicação
-    const customKeys = [];
-    if (effMode === 'custom' && effFields.length > 0) {
-      for (const c of cols) {
-        const matched = effFields.some((tf) => {
-          const tk = typeof tf === 'string' ? tf : String(tf.key || '');
-          const tl = typeof tf === 'string' ? tf : String(tf.label || '');
-          return (
-            (tk && tk === c.field.key) ||
-            (tk && tk === `new:${norm(c.field.label)}`) ||
-            (tl && norm(tl) === norm(c.field.label)) ||
-            (tl && headers[c.index] !== undefined && norm(tl) === norm(headers[c.index]))
-          );
-        });
-        if (matched && !customKeys.includes(c.field.key)) {
-          customKeys.push(c.field.key);
+  const seenFull = new Set();
+  const existingByCustom = new Map();
+  if (skipDuplicates) {
+    const existing = db.prepare('SELECT id, data, hash FROM records').all();
+    for (const r of existing) {
+      let parsed = null;
+      try { parsed = JSON.parse(r.data || '{}'); } catch { parsed = {}; }
+      seenFull.add(r.hash || hashValues(parsed));
+      if (customKeys.length > 0) {
+        const sub = {};
+        for (const k of customKeys) {
+          if (parsed[k] !== undefined && parsed[k] !== null && String(parsed[k]).trim() !== '') sub[k] = parsed[k];
+        }
+        if (Object.keys(sub).length > 0) {
+          const ch = hashValues(sub);
+          if (!existingByCustom.has(ch)) existingByCustom.set(ch, { id: r.id, data: parsed });
         }
       }
+    }
+  }
+
+  const seenCustomInFile = new Set();
+  const toInsert = [];
+  const conflicts = [];
+  let dup = 0, empty = 0, filteredOut = 0;
+
+  for (let rowIdx = 0; rowIdx < rows.length; rowIdx++) {
+    const row = rows[rowIdx];
+
+    // 1. Filtra pela expressão antes mesmo de verificar duplicações
+    if (filterFn) {
+      const rawObj = {};
+      for (let j = 0; j < headers.length; j++) {
+        const rv = row[j];
+        if (rv instanceof Date) rawObj[String(j)] = rv.toISOString();
+        else if (typeof rv === 'string') rawObj[String(j)] = rv.trim();
+        else rawObj[String(j)] = rv ?? null;
+      }
+      if (!filterFn(rawObj)) {
+        filteredOut++;
+        continue;
+      }
+    }
+
+    // 2. Mapeia colunas para o objeto de registro
+    const data = {};
+    for (const c of cols) {
+      const v = coerce(c.field.type, row[c.index]);
+      if (v !== null) data[c.field.key] = v;
+    }
+    if (!Object.keys(data).length) { empty++; continue; }
+
+    const hash = hashValues(data);
+    if (skipDuplicates) {
+      if (customKeys.length > 0) {
+        const sub = {};
+        for (const k of customKeys) {
+          if (data[k] !== undefined && data[k] !== null && String(data[k]).trim() !== '') sub[k] = data[k];
+        }
+        if (Object.keys(sub).length > 0) {
+          const cHash = hashValues(sub);
+          const match = existingByCustom.get(cHash);
+          if (match) {
+            const existingMapped = {};
+            for (const c of cols) {
+              const ev = coerce(c.field.type, match.data[c.field.key]);
+              if (ev !== null) existingMapped[c.field.key] = ev;
+            }
+            if (hashValues(existingMapped) === hash) {
+              dup++;
+              continue;
+            }
+            // Conflito: mesma chave de duplicação, porém colunas diferentes!
+            const diffs = [];
+            for (const c of cols) {
+              const exVal = existingMapped[c.field.key] ?? null;
+              const inVal = data[c.field.key] ?? null;
+              if (norm(exVal ?? '') !== norm(inVal ?? '')) {
+                diffs.push({
+                  key: c.field.key,
+                  label: c.field.label,
+                  type: c.field.type,
+                  existing: exVal,
+                  incoming: inVal,
+                });
+              }
+            }
+            if (diffs.length === 0) {
+              dup++;
+              continue;
+            }
+            const keySummary = customKeys.map((k) => {
+              const f = cols.find((c) => c.field.key === k)?.field;
+              return `${f?.label || k}: ${data[k] ?? '—'}`;
+            }).join(' · ');
+            conflicts.push({
+              rowNumber: rowIdx + 2,
+              existingId: match.id,
+              keySummary,
+              diffs,
+              existingData: existingMapped,
+              incomingData: data,
+            });
+            continue;
+          }
+          if (seenCustomInFile.has(cHash)) { dup++; continue; }
+          seenCustomInFile.add(cHash);
+        } else {
+          if (seenFull.has(hash)) { dup++; continue; }
+          seenFull.add(hash);
+        }
+      } else {
+        if (seenFull.has(hash)) { dup++; continue; }
+        seenFull.add(hash);
+      }
+    }
+
+    toInsert.push({ data, hash });
+  }
+
+  // Se há conflitos e o usuário ainda não escolheu qual versão manter, retorna para o modal de resolução
+  if (conflicts.length > 0 && resolutions == null) {
+    return {
+      needs_resolution: true,
+      conflicts: conflicts.map(({ existingData: _e, incomingData: _i, ...rest }) => rest),
+      summary: {
+        total: rows.length,
+        new_records: toInsert.length,
+        exact_duplicates: dup,
+        filtered_out: filteredOut,
+        empty,
+        conflicts: conflicts.length,
+      },
+    };
+  }
+
+  const result = db.transaction(() => {
+    for (const nf of newFieldsToCreate) {
+      const order = db.prepare('SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM fields').get().n;
+      db.prepare('INSERT INTO fields (key, label, type, sort_order) VALUES (?, ?, ?, ?)').run(nf.key, nf.label, nf.type, order);
     }
 
     const importId = db.prepare('INSERT INTO imports (filename, sheet, rows_total, user_name) VALUES (?, ?, ?, ?)')
       .run(filename, sheet, rows.length, userName).lastInsertRowid;
 
-    const seen = new Set();
-    const seenCustom = new Set();
-    if (skipDuplicates) {
-      const existing = db.prepare('SELECT data, hash FROM records').all();
-      for (const r of existing) {
-        let parsed = null;
-        try { parsed = JSON.parse(r.data || '{}'); } catch { parsed = {}; }
-        seen.add(r.hash || hashValues(parsed));
-        if (customKeys.length > 0) {
-          const sub = {};
-          for (const k of customKeys) {
-            if (parsed[k] !== undefined && parsed[k] !== null && String(parsed[k]).trim() !== '') sub[k] = parsed[k];
+    const ins = db.prepare('INSERT INTO records (data, hash, import_id, created_by) VALUES (?, ?, ?, ?)');
+    let imported = 0, updated = 0;
+    for (const item of toInsert) {
+      ins.run(JSON.stringify(item.data), item.hash, importId, userName);
+      imported++;
+    }
+
+    const upd = db.prepare("UPDATE records SET data = ?, hash = ?, updated_by = ?, updated_at = datetime('now') WHERE id = ?");
+    for (const cf of conflicts) {
+      const choice = resolutions?.[String(cf.rowNumber)] || 'keep_existing';
+      if (choice === 'use_new') {
+        const oldRow = db.prepare('SELECT data FROM records WHERE id = ?').get(cf.existingId);
+        if (oldRow) {
+          let before = {};
+          try { before = JSON.parse(oldRow.data || '{}'); } catch {}
+          const merged = { ...before };
+          for (const c of cols) {
+            if (cf.incomingData[c.field.key] !== undefined) merged[c.field.key] = cf.incomingData[c.field.key];
+            else delete merged[c.field.key];
           }
-          if (Object.keys(sub).length > 0) seenCustom.add(hashValues(sub));
+          const changes = [];
+          for (const c of cols) {
+            const a = before[c.field.key] ?? null;
+            const b = merged[c.field.key] ?? null;
+            if (String(a ?? '') !== String(b ?? '')) changes.push({ k: c.field.key, l: c.field.label, from: a, to: b });
+          }
+          upd.run(JSON.stringify(merged), hashValues(merged), userName, cf.existingId);
+          if (changes.length) logHistory(cf.existingId, userName, 'update', summaryOf(ctx, merged), changes);
+          updated++;
         }
+      } else {
+        dup++;
       }
     }
 
-    const ins = db.prepare('INSERT INTO records (data, hash, import_id, created_by) VALUES (?, ?, ?, ?)');
-    let imported = 0, dup = 0, empty = 0;
-    for (const row of rows) {
-      const data = {};
-      for (const c of cols) {
-        const v = coerce(c.field.type, row[c.index]);
-        if (v !== null) data[c.field.key] = v;
-      }
-      if (!Object.keys(data).length) { empty++; continue; }
-      const hash = hashValues(data);
-      if (skipDuplicates) {
-        if (customKeys.length > 0) {
-          const sub = {};
-          for (const k of customKeys) {
-            if (data[k] !== undefined && data[k] !== null && String(data[k]).trim() !== '') sub[k] = data[k];
-          }
-          if (Object.keys(sub).length > 0) {
-            const cHash = hashValues(sub);
-            if (seenCustom.has(cHash)) { dup++; continue; }
-            seenCustom.add(cHash);
-          } else {
-            if (seen.has(hash)) { dup++; continue; }
-            seen.add(hash);
-          }
-        } else {
-          if (seen.has(hash)) { dup++; continue; }
-          seen.add(hash);
-        }
-      }
-      ins.run(JSON.stringify(data), hash, importId, userName);
-      imported++;
-    }
-    db.prepare('UPDATE imports SET rows_imported = ?, rows_skipped = ? WHERE id = ?').run(imported, dup + empty, importId);
-    return { import_id: importId, imported, skipped_duplicates: dup, skipped_empty: empty, created_fields: created };
+    db.prepare('UPDATE imports SET rows_imported = ?, rows_skipped = ? WHERE id = ?').run(imported + updated, dup + empty + filteredOut, importId);
+    return {
+      import_id: importId,
+      imported,
+      updated,
+      skipped_duplicates: dup,
+      skipped_empty: empty,
+      filtered_out: filteredOut,
+      created_fields: created,
+    };
   })();
   invalidate();
   return result;
@@ -821,15 +970,22 @@ router.post('/import', xlsx.single('file'), wrap(async (req, res) => {
   if (req.body.dedupFields) {
     try { dedupFields = JSON.parse(req.body.dedupFields); } catch {}
   }
+  let resolutions = null;
+  if (req.body.resolutions) {
+    try { resolutions = JSON.parse(req.body.resolutions); } catch {}
+  }
   const { sheet, headers, rows } = await readSheet(req.file.buffer, req.body.sheet);
-  res.status(201).json(importRows({
+  const out = importRows({
     headers, rows, sheet, mapping,
     filename: Buffer.from(req.file.originalname, 'latin1').toString('utf8'),
     skipDuplicates: req.body.skipDuplicates !== 'false',
     dedupMode: req.body.dedupMode,
     dedupFields,
+    filterExpr: req.body.filterExpr || '',
+    resolutions,
     userName: req.user?.username ?? '',
-  }));
+  });
+  res.status(out.needs_resolution ? 200 : 201).json(out);
 }));
 
 router.get('/imports', (_req, res) => res.json(db.prepare('SELECT * FROM imports ORDER BY id DESC LIMIT 50').all()));
