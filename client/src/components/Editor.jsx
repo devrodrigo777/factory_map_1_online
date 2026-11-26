@@ -862,7 +862,7 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
 }
 
 function DisplayFieldsConfig({ fields, value = [], onChange }) {
-  const { t } = useTranslation();
+  const { t, td } = useTranslation();
   const [dragIdx, setDragIdx] = useState(null);
   const [dragOverIdx, setDragOverIdx] = useState(null);
 
