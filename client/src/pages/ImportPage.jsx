@@ -604,6 +604,7 @@ export default function ImportPage() {
         <Modal
           title={`Resolver duplicações com diferenças (${conflictModal.conflicts.length})`}
           onClose={() => !busy && setConflictModal(null)}
+          className="conflict-modal"
         >
           <div className="conflict-modal-body">
             <p className="muted" style={{ margin: 0 }}>

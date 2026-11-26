@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import Icon from './Icons.jsx';
 
-export default function Modal({ title, onClose, children, footer }) {
+export default function Modal({ title, onClose, children, footer, className = '' }) {
   useEffect(() => {
     const onKey = (e) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -10,7 +10,7 @@ export default function Modal({ title, onClose, children, footer }) {
 
   return (
     <div className="modal-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
+      <div className={`modal ${className}`} role="dialog" aria-modal="true" aria-label={title}>
         <header>
           <h2>{title}</h2>
           <button className="btn icon ghost" onClick={onClose} aria-label="Fechar"><Icon name="close" /></button>
