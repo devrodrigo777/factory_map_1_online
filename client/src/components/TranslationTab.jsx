@@ -840,8 +840,8 @@ export default function TranslationTab() {
 
                 return (
                   <tr key={term.key} className={!currentVal ? 'row-pending' : ''}>
-                    <td className="term-key-cell">
-                      <code className="term-key-badge">{term.key}</code>
+                    <td className={`term-key-cell ${term.termType === 'dynamic' ? 'is-dynamic' : ''}`}>
+                      <code className="term-key-badge" title={term.termType === 'dynamic' ? term.key : undefined}>{term.key}</code>
                       {term.context && <small className="term-context-hint">{term.context}</small>}
                     </td>
                     <td className={`term-source-cell ${term.termType === 'dynamic' ? 'is-dynamic' : ''}`}>

@@ -2428,6 +2428,14 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
   font-size: 0.8rem;
   font-weight: 600;
 }
+.term-key-cell.is-dynamic > .term-key-badge {
+  display: block;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .term-context-hint {
   display: block;
   margin-top: 4px;
