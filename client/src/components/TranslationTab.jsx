@@ -820,7 +820,7 @@ export default function TranslationTab() {
 
         {/* Tabela de Termos */}
         <div className="table-wrap tall">
-          <table className="table translation-table">
+          <table className={`table translation-table ${termType !== 'fixed' ? 'has-dynamic-terms' : ''}`}>
             <thead>
               <tr>
                 <th style={{ width: '22%' }}>{t('translation.col_key', 'Identificador semântico')}</th>
@@ -844,8 +844,8 @@ export default function TranslationTab() {
                       <code className="term-key-badge">{term.key}</code>
                       {term.context && <small className="term-context-hint">{term.context}</small>}
                     </td>
-                    <td className="term-source-cell">
-                      <span>{term.text}</span>
+                    <td className={`term-source-cell ${term.termType === 'dynamic' ? 'is-dynamic' : ''}`}>
+                      <span title={term.termType === 'dynamic' ? term.text : undefined}>{term.text}</span>
                     </td>
                     <td className="term-input-cell">
                       <div className="term-input-wrap">

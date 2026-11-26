@@ -2402,6 +2402,15 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
 .translation-table {
   width: 100%;
 }
+.translation-table.has-dynamic-terms {
+  table-layout: fixed;
+}
+.term-source-cell.is-dynamic > span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .translation-table th {
   font-size: 0.78rem;
   text-transform: uppercase;
