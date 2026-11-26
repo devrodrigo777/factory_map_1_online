@@ -362,8 +362,11 @@ export default function Viewer() {
             onPointerLeave={() => setTip(null)}
           >
             <polygon points={pointsAttr(a.points, map.width, map.height)} vectorEffect="non-scaling-stroke" />
-            {a.show_label && a.name && (
-              <text x={cx} y={cy} fontSize={14 / k} strokeWidth={3.5 / k}>{a.name}</text>
+            {a.show_label && (a.name || a.sub_label) && (
+              <>
+                {a.name && <text x={cx} y={a.sub_label ? cy - 5 / k : cy} fontSize={14 / k} strokeWidth={3.5 / k}>{a.name}</text>}
+                {a.sub_label && <text className="area-sublabel" x={cx} y={a.name ? cy + 10 / k : cy} fontSize={10.5 / k} strokeWidth={2.5 / k}>{a.sub_label}</text>}
+              </>
             )}
           </g>
         );
@@ -372,7 +375,7 @@ export default function Viewer() {
         const count = locks?.areas?.[a.id]?.active ?? 0;
         if (!a.show_lock || count < 1) return null;
         const [cx, cy] = centroid(a.points, map.width, map.height);
-        const dy = a.show_label && a.name ? 26 / k : 0; // sobe o cadeado para não cobrir o nome
+        const dy = a.show_label && (a.name || a.sub_label) ? (a.name && a.sub_label ? 30 / k : 26 / k) : 0; // sobe o cadeado para não cobrir o nome
         const color = locks.stages?.length ? stageFor(locks.areas[a.id].oldest_hours ?? 0, locks.stages).color : undefined;
         return (
           <LockMarker key={`lock-${a.id}`} x={cx} y={cy - dy} k={k} count={count} color={color}

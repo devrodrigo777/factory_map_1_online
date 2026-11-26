@@ -189,7 +189,7 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
   const addArea = (points) => {
     const uid = newUid();
     const next = [...areas, {
-      uid, id: null, name: `Área ${areas.length + 1}`, code: '', description: '', points,
+      uid, id: null, name: `Área ${areas.length + 1}`, sub_label: '', code: '', description: '', points,
       color: COLORS[areas.length % COLORS.length], opacity: 0.25, show_label: true, target_map_id: null,
       lock_filter: '', show_lock: false, display_fields: [],
     }];
@@ -524,8 +524,11 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
               </g>
             )}
 
-            {a.show_label && a.name && (!isMulti || !isSel) && (
-              <text x={cx} y={cy} fontSize={14 / k} strokeWidth={3.5 / k}>{a.name}</text>
+            {a.show_label && (a.name || a.sub_label) && (!isMulti || !isSel) && (
+              <>
+                {a.name && <text x={cx} y={a.sub_label ? cy - 5 / k : cy} fontSize={14 / k} strokeWidth={3.5 / k}>{a.name}</text>}
+                {a.sub_label && <text className="area-sublabel" x={cx} y={a.name ? cy + 10 / k : cy} fontSize={10.5 / k} strokeWidth={2.5 / k}>{a.sub_label}</text>}
+              </>
             )}
           </g>
         );
@@ -748,6 +751,9 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
                 </div>
                 <label className="field">Nome
                   <input value={selArea.name} onChange={(e) => patchArea(selArea.uid, { name: e.target.value })} />
+                </label>
+                <label className="field">Rótulo
+                  <input value={selArea.sub_label ?? ''} placeholder="Ex.: Linha 1 · Subtítulo" onChange={(e) => patchArea(selArea.uid, { sub_label: e.target.value })} />
                 </label>
                 <label className="field">Código
                   <input value={selArea.code} placeholder="Ex.: PRD-01" onChange={(e) => patchArea(selArea.uid, { code: e.target.value })} />

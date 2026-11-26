@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../api.js';
 import Shell from '../components/Shell.jsx';
 import Icon from '../components/Icons.jsx';
@@ -46,6 +46,10 @@ export default function ImportPage() {
   const [fields, setFields] = useState([]);
   const [map, setMap] = useState({}); // índice da coluna -> { action, field, label, type }
   const [skipDup, setSkipDup] = useState(true);
+  const [dedupMode, setDedupMode] = useState('auto'); // 'auto' | 'custom'
+  const [dedupFields, setDedupFields] = useState([]); // [{ key, label }]
+  const [dedupDropdownOpen, setDedupDropdownOpen] = useState(false);
+  const dedupDropdownRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
@@ -57,7 +61,85 @@ export default function ImportPage() {
 
   const loadHistory = useCallback(() => api.listImports().then(setHistory).catch(() => {}), []);
   const loadProfiles = useCallback(() => api.listProfiles().then(setProfiles).catch(() => {}), []);
-  useEffect(() => { loadHistory(); loadProfiles(); api.listFields().then(setFields).catch(() => {}); }, [loadHistory, loadProfiles]);
+  useEffect(() => {
+    loadHistory();
+    loadProfiles();
+    api.listFields().then(setFields).catch(() => {});
+    api.getDedupConfig().then((cfg) => {
+      if (cfg) {
+        setDedupMode(cfg.mode === 'custom' ? 'custom' : 'auto');
+        setDedupFields(Array.isArray(cfg.fields) ? cfg.fields : []);
+      }
+    }).catch(() => {});
+  }, [loadHistory, loadProfiles]);
+
+  useEffect(() => {
+    if (!dedupDropdownOpen) return;
+    const onDown = (e) => {
+      if (dedupDropdownRef.current && !dedupDropdownRef.current.contains(e.target)) {
+        setDedupDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [dedupDropdownOpen]);
+
+  const baseFields = useMemo(() => fields.filter((f) => !f.computed), [fields]);
+
+  const activeColumns = useMemo(() => {
+    if (!preview) return [];
+    const seenKeys = new Set();
+    const list = [];
+    for (const c of preview.columns) {
+      const m = map[c.index];
+      if (!m || m.action === 'ignore') continue;
+      const key = m.action === 'map' ? m.field : `new:${nrm(m.label || c.name)}`;
+      const label = m.action === 'map'
+        ? (baseFields.find((f) => f.key === m.field)?.label || c.name)
+        : (m.label || c.name);
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        list.push({ key, label, index: c.index });
+      }
+    }
+    return list;
+  }, [preview, map, baseFields]);
+
+  const selectedActiveDedup = useMemo(() => {
+    return dedupFields.filter((df) =>
+      activeColumns.some((c) => c.key === df.key || nrm(c.label) === nrm(df.label))
+    ).map((df) => {
+      const match = activeColumns.find((c) => c.key === df.key || nrm(c.label) === nrm(df.label));
+      return match ? { key: match.key, label: match.label } : df;
+    });
+  }, [dedupFields, activeColumns]);
+
+  const persistDedup = useCallback((nextMode, nextFields) => {
+    api.saveDedupConfig({ mode: nextMode, fields: nextFields }).catch((err) => toast(err.message, 'error'));
+  }, [toast]);
+
+  const pruneIgnoredFromDedup = useCallback((nextMap, p) => {
+    if (!p) return;
+    const activeKeys = new Set();
+    const activeLabels = new Set();
+    for (const c of p.columns) {
+      const m = nextMap[c.index];
+      if (!m || m.action === 'ignore') continue;
+      const key = m.action === 'map' ? m.field : `new:${nrm(m.label || c.name)}`;
+      const label = m.action === 'map'
+        ? (baseFields.find((f) => f.key === m.field)?.label || c.name)
+        : (m.label || c.name);
+      activeKeys.add(key);
+      activeLabels.add(nrm(label));
+    }
+    setDedupFields((prev) => {
+      const filtered = prev.filter((df) => activeKeys.has(df.key) || activeLabels.has(nrm(df.label)));
+      if (filtered.length !== prev.length) {
+        persistDedup(dedupMode, filtered);
+      }
+      return filtered;
+    });
+  }, [baseFields, dedupMode, persistDedup]);
 
   const choose_profile = (p, current, chosen, auto) => {
     const r = applyProfile(p, chosen, fields);
@@ -68,6 +150,7 @@ export default function ImportPage() {
     setProfileName(chosen ? chosen.name : '');
     setInfo(chosen ? { name: chosen.name, auto, known: r.known, total: p.columns.length, fresh: r.fresh, missing: r.missing } : null);
     if (chosen) setSkipDup(chosen.options?.skipDuplicates !== false);
+    pruneIgnoredFromDedup(r.next, p);
   };
 
   // ao abrir um arquivo: usa automaticamente o perfil que mais combina com as colunas
@@ -157,9 +240,38 @@ export default function ImportPage() {
   const setCol = (i, patch) => setMap((m) => ({ ...m, [i]: { ...m[i], ...patch } }));
   const choose = (i, value) => {
     const c = preview.columns[i];
-    if (value === '__ignore') setCol(i, { action: 'ignore' });
-    else if (value === '__new') setCol(i, { action: 'new', label: c.name, type: c.type });
-    else setCol(i, { action: 'map', field: value });
+    const patch = value === '__ignore'
+      ? { action: 'ignore' }
+      : value === '__new'
+        ? { action: 'new', label: c.name, type: c.type }
+        : { action: 'map', field: value };
+    const nextMap = { ...map, [i]: { ...map[i], ...patch } };
+    setMap(nextMap);
+    if (value === '__ignore') {
+      pruneIgnoredFromDedup(nextMap, preview);
+    }
+  };
+
+  const handleDedupModeChange = (mode) => {
+    setDedupMode(mode);
+    if (mode !== 'custom') setDedupDropdownOpen(false);
+    persistDedup(mode, dedupFields);
+  };
+
+  const toggleDedupField = (col) => {
+    const exists = dedupFields.some((f) => f.key === col.key || nrm(f.label) === nrm(col.label));
+    const next = exists
+      ? dedupFields.filter((f) => f.key !== col.key && nrm(f.label) !== nrm(col.label))
+      : [...dedupFields, { key: col.key, label: col.label }];
+    setDedupFields(next);
+    persistDedup(dedupMode, next);
+  };
+
+  const removeDedupField = (e, item) => {
+    e.stopPropagation();
+    const next = dedupFields.filter((f) => f.key !== item.key && nrm(f.label) !== nrm(item.label));
+    setDedupFields(next);
+    persistDedup(dedupMode, next);
   };
 
   const importable = preview ? Object.values(map).filter((m) => m.action !== 'ignore').length : 0;
@@ -168,7 +280,7 @@ export default function ImportPage() {
     setBusy(true);
     try {
       const mapping = preview.columns.map((c) => ({ index: c.index, ...map[c.index] }));
-      const r = await api.importConfirm(file, preview.sheet, mapping, skipDup);
+      const r = await api.importConfirm(file, preview.sheet, mapping, skipDup, dedupMode, selectedActiveDedup);
       setResult(r);
       setPreview(null);
       setFile(null);
@@ -187,8 +299,6 @@ export default function ImportPage() {
     if (!ok) return;
     try { await api.deleteImport(h.id); toast('Importação desfeita.'); loadHistory(); } catch (e) { toast(e.message, 'error'); }
   };
-
-  const baseFields = fields.filter((f) => !f.computed);
 
   return (
     <Shell title="Importar Excel">
@@ -308,10 +418,94 @@ export default function ImportPage() {
               </button>
               {profileId && <button className="btn danger" onClick={deleteProfile}>Excluir perfil</button>}
             </div>
-            <label className="check">
-              <input type="checkbox" checked={skipDup} onChange={(e) => setSkipDup(e.target.checked)} />
-              Ignorar linhas idênticas a registros que já existem (evita duplicar ao reimportar o mesmo arquivo)
-            </label>
+            <div className="dedup-section">
+              <label className="check">
+                <input type="checkbox" checked={skipDup} onChange={(e) => setSkipDup(e.target.checked)} />
+                Ignorar linhas idênticas a registros que já existem (evita duplicar ao reimportar o mesmo arquivo)
+              </label>
+
+              {skipDup && (
+                <div className="dedup-controls">
+                  <div className="seg dedup-toggle" role="group" aria-label="Modo de detecção de duplicação">
+                    <button
+                      type="button"
+                      className={`btn ${dedupMode === 'auto' ? 'active' : ''}`}
+                      onClick={() => handleDedupModeChange('auto')}
+                    >
+                      Detectar duplicação automaticamente
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn ${dedupMode === 'custom' ? 'active' : ''}`}
+                      onClick={() => handleDedupModeChange('custom')}
+                    >
+                      Ajustar verificação de duplicação
+                    </button>
+                  </div>
+
+                  {dedupMode === 'custom' && (
+                    <div className="dedup-multi-wrap" ref={dedupDropdownRef}>
+                      <div
+                        className={`dedup-multi-trigger ${dedupDropdownOpen ? 'is-open' : ''}`}
+                        onClick={() => setDedupDropdownOpen((o) => !o)}
+                        role="button"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setDedupDropdownOpen((o) => !o);
+                          }
+                        }}
+                      >
+                        <div className="dedup-chips">
+                          {selectedActiveDedup.length === 0 ? (
+                            <span className="muted">Selecione as colunas que identificam um registro único…</span>
+                          ) : (
+                            selectedActiveDedup.map((item) => (
+                              <span key={item.key} className="dedup-chip">
+                                <span>{item.label}</span>
+                                <button
+                                  type="button"
+                                  className="dedup-chip-x"
+                                  onClick={(e) => removeDedupField(e, item)}
+                                  title={`Remover ${item.label}`}
+                                  aria-label={`Remover ${item.label}`}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            ))
+                          )}
+                        </div>
+                        <Icon name={dedupDropdownOpen ? 'chevronUp' : 'chevronDown'} size={16} />
+                      </div>
+
+                      {dedupDropdownOpen && (
+                        <div className="dedup-multi-menu">
+                          {activeColumns.length === 0 ? (
+                            <div className="dedup-menu-empty muted">Nenhuma coluna ativa (todas estão ignoradas).</div>
+                          ) : (
+                            activeColumns.map((col) => {
+                              const checked = dedupFields.some((f) => f.key === col.key || nrm(f.label) === nrm(col.label));
+                              return (
+                                <label key={col.key} className={`dedup-menu-item ${checked ? 'is-selected' : ''}`}>
+                                  <input
+                                    type="checkbox"
+                                    checked={checked}
+                                    onChange={() => toggleDedupField(col)}
+                                  />
+                                  <span>{col.label}</span>
+                                </label>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
             <div className="row">
               <button className="btn primary" onClick={run} disabled={busy || importable === 0}>
                 {busy ? 'Importando…' : `Importar ${formatInt(preview.row_count)} linhas`}

@@ -165,14 +165,18 @@ export const api = {
     fd.append('file', file);
     return request('/api/import/preview', { method: 'POST', body: fd });
   },
-  importConfirm: (file, sheet, mapping, skipDuplicates) => {
+  importConfirm: (file, sheet, mapping, skipDuplicates, dedupMode, dedupFields) => {
     const fd = new FormData();
     fd.append('sheet', sheet || '');
     fd.append('mapping', JSON.stringify(mapping));
     fd.append('skipDuplicates', String(skipDuplicates));
+    if (dedupMode) fd.append('dedupMode', dedupMode);
+    if (dedupFields) fd.append('dedupFields', JSON.stringify(dedupFields));
     fd.append('file', file);
     return request('/api/import', { method: 'POST', body: fd });
   },
+  getDedupConfig: () => request('/api/import/dedup-config'),
+  saveDedupConfig: (cfg) => request('/api/import/dedup-config', json('PUT', cfg)),
   listImports: () => request('/api/imports'),
   deleteImport: (id) => request(`/api/imports/${id}`, { method: 'DELETE' }),
 

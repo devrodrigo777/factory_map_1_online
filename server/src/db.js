@@ -75,6 +75,7 @@ const tenantMigrations = [
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     map_id        INTEGER NOT NULL REFERENCES maps(id) ON DELETE CASCADE,
     name          TEXT    NOT NULL DEFAULT '',
+    sub_label     TEXT    NOT NULL DEFAULT '',
     code          TEXT    NOT NULL DEFAULT '',
     description   TEXT    NOT NULL DEFAULT '',
     points        TEXT    NOT NULL,
@@ -173,6 +174,12 @@ const tenantMigrations = [
 
 function migrateTenantDb(tDb) {
   tDb.exec(tenantMigrations[0]);
+  try {
+    const cols = tDb.prepare('PRAGMA table_info(areas)').all();
+    if (!cols.some((c) => c.name === 'sub_label')) {
+      tDb.exec("ALTER TABLE areas ADD COLUMN sub_label TEXT NOT NULL DEFAULT ''");
+    }
+  } catch {}
   try {
     tDb.pragma('user_version = 1');
   } catch {}

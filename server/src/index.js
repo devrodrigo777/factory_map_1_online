@@ -167,9 +167,9 @@ function getQueries() {
       areas: currentDb.prepare('SELECT * FROM areas WHERE map_id = ? ORDER BY sort_order, id'),
       insertMap: currentDb.prepare('INSERT INTO maps (name, image, width, height, is_root) VALUES (?, ?, ?, ?, ?)'),
       insertArea: currentDb.prepare(`
-        INSERT INTO areas (map_id, name, code, description, points, color, opacity, show_label, target_map_id, sort_order,
+        INSERT INTO areas (map_id, name, sub_label, code, description, points, color, opacity, show_label, target_map_id, sort_order,
                            lock_filter, show_lock, display_fields)
-        VALUES (@map_id, @name, @code, @description, @points, @color, @opacity, @show_label, @target_map_id, @sort_order,
+        VALUES (@map_id, @name, @sub_label, @code, @description, @points, @color, @opacity, @show_label, @target_map_id, @sort_order,
                 @lock_filter, @show_lock, @display_fields)`),
     };
     queryMap.set(currentDb, q);
@@ -206,6 +206,7 @@ function cleanArea(a, mapId, validIds, index) {
   return {
     map_id: mapId,
     name: String(a.name ?? '').slice(0, 120),
+    sub_label: String(a.sub_label ?? '').slice(0, 120),
     code: String(a.code ?? '').slice(0, 60),
     description: String(a.description ?? '').slice(0, 4000),
     points: JSON.stringify(points),

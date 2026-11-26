@@ -656,12 +656,52 @@ router.post('/import/preview', xlsx.single('file'), wrap(async (req, res) => {
   });
 }));
 
+export function getImportDedupConfig() {
+  try {
+    const raw = getSetting('import_dedup_config');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        mode: parsed?.mode === 'custom' ? 'custom' : 'auto',
+        fields: Array.isArray(parsed?.fields)
+          ? parsed.fields
+              .filter((f) => f && (typeof f === 'string' || (typeof f === 'object' && (f.key || f.label))))
+              .map((f) => (typeof f === 'string' ? { key: f, label: f } : { key: String(f.key || '').trim(), label: String(f.label || f.key || '').trim() }))
+              .filter((f) => f.key || f.label)
+          : [],
+      };
+    }
+  } catch {}
+  return { mode: 'auto', fields: [] };
+}
+
+router.get('/import/dedup-config', (_req, res) => {
+  res.json(getImportDedupConfig());
+});
+
+router.put('/import/dedup-config', (req, res) => {
+  const mode = req.body?.mode === 'custom' ? 'custom' : 'auto';
+  const fields = Array.isArray(req.body?.fields)
+    ? req.body.fields
+        .filter((f) => f && (typeof f === 'string' || (typeof f === 'object' && (f.key || f.label))))
+        .map((f) => (typeof f === 'string' ? { key: f, label: f } : { key: String(f.key || '').trim(), label: String(f.label || f.key || '').trim() }))
+        .filter((f) => f.key || f.label)
+    : [];
+  const cfg = { mode, fields };
+  setSetting('import_dedup_config', JSON.stringify(cfg));
+  res.json(cfg);
+});
+
 // Núcleo da importação (usado pela tela e pela importação automática).
-export function importRows({ headers, rows, filename, sheet, mapping, skipDuplicates = true, userName = '' }) {
+export function importRows({ headers, rows, filename, sheet, mapping, skipDuplicates = true, dedupMode, dedupFields, userName = '' }) {
   const ctx = buildCtx();
   const used = new Set();
   const cols = []; // { index, field }
   const created = [];
+  const savedDedup = getImportDedupConfig();
+  const effMode = (dedupMode || savedDedup.mode) === 'custom' ? 'custom' : 'auto';
+  const effFields = Array.isArray(dedupFields) ? dedupFields : savedDedup.fields;
+
   const result = db.transaction(() => {
     for (const m of mapping) {
       if (m.action === 'map') {
@@ -693,9 +733,47 @@ export function importRows({ headers, rows, filename, sheet, mapping, skipDuplic
     }
     if (!cols.length) throw httpError(400, 'Nenhuma coluna foi selecionada para importar.');
 
+    // Resolve quais chaves de campos compõem a verificação personalizada de duplicação
+    const customKeys = [];
+    if (effMode === 'custom' && effFields.length > 0) {
+      for (const c of cols) {
+        const matched = effFields.some((tf) => {
+          const tk = typeof tf === 'string' ? tf : String(tf.key || '');
+          const tl = typeof tf === 'string' ? tf : String(tf.label || '');
+          return (
+            (tk && tk === c.field.key) ||
+            (tk && tk === `new:${norm(c.field.label)}`) ||
+            (tl && norm(tl) === norm(c.field.label)) ||
+            (tl && headers[c.index] !== undefined && norm(tl) === norm(headers[c.index]))
+          );
+        });
+        if (matched && !customKeys.includes(c.field.key)) {
+          customKeys.push(c.field.key);
+        }
+      }
+    }
+
     const importId = db.prepare('INSERT INTO imports (filename, sheet, rows_total, user_name) VALUES (?, ?, ?, ?)')
       .run(filename, sheet, rows.length, userName).lastInsertRowid;
-    const seen = skipDuplicates ? new Set(db.prepare("SELECT hash FROM records WHERE hash != ''").all().map((r) => r.hash)) : new Set();
+
+    const seen = new Set();
+    const seenCustom = new Set();
+    if (skipDuplicates) {
+      const existing = db.prepare('SELECT data, hash FROM records').all();
+      for (const r of existing) {
+        let parsed = null;
+        try { parsed = JSON.parse(r.data || '{}'); } catch { parsed = {}; }
+        seen.add(r.hash || hashValues(parsed));
+        if (customKeys.length > 0) {
+          const sub = {};
+          for (const k of customKeys) {
+            if (parsed[k] !== undefined && parsed[k] !== null && String(parsed[k]).trim() !== '') sub[k] = parsed[k];
+          }
+          if (Object.keys(sub).length > 0) seenCustom.add(hashValues(sub));
+        }
+      }
+    }
+
     const ins = db.prepare('INSERT INTO records (data, hash, import_id, created_by) VALUES (?, ?, ?, ?)');
     let imported = 0, dup = 0, empty = 0;
     for (const row of rows) {
@@ -706,8 +784,25 @@ export function importRows({ headers, rows, filename, sheet, mapping, skipDuplic
       }
       if (!Object.keys(data).length) { empty++; continue; }
       const hash = hashValues(data);
-      if (skipDuplicates && seen.has(hash)) { dup++; continue; }
-      seen.add(hash);
+      if (skipDuplicates) {
+        if (customKeys.length > 0) {
+          const sub = {};
+          for (const k of customKeys) {
+            if (data[k] !== undefined && data[k] !== null && String(data[k]).trim() !== '') sub[k] = data[k];
+          }
+          if (Object.keys(sub).length > 0) {
+            const cHash = hashValues(sub);
+            if (seenCustom.has(cHash)) { dup++; continue; }
+            seenCustom.add(cHash);
+          } else {
+            if (seen.has(hash)) { dup++; continue; }
+            seen.add(hash);
+          }
+        } else {
+          if (seen.has(hash)) { dup++; continue; }
+          seen.add(hash);
+        }
+      }
       ins.run(JSON.stringify(data), hash, importId, userName);
       imported++;
     }
@@ -722,11 +817,17 @@ router.post('/import', xlsx.single('file'), wrap(async (req, res) => {
   if (!req.file) throw httpError(400, 'Nenhum arquivo enviado.');
   let mapping;
   try { mapping = JSON.parse(req.body.mapping || '[]'); } catch { throw httpError(400, 'Mapeamento inválido.'); }
+  let dedupFields;
+  if (req.body.dedupFields) {
+    try { dedupFields = JSON.parse(req.body.dedupFields); } catch {}
+  }
   const { sheet, headers, rows } = await readSheet(req.file.buffer, req.body.sheet);
   res.status(201).json(importRows({
     headers, rows, sheet, mapping,
     filename: Buffer.from(req.file.originalname, 'latin1').toString('utf8'),
     skipDuplicates: req.body.skipDuplicates !== 'false',
+    dedupMode: req.body.dedupMode,
+    dedupFields,
     userName: req.user?.username ?? '',
   }));
 }));
