@@ -1,10 +1,103 @@
 import { Router } from 'express';
-import { getSetting, setSetting } from './db.js';
+import { db, getSetting, setSetting } from './db.js';
 import { DEFAULT_LANGUAGE, MASTER_TERMS, SUPPORTED_LANGUAGES, DEFAULT_TRANSLATIONS } from './i18n_keys.js';
 
 export const router = Router();
 
 const httpError = (status, message) => Object.assign(new Error(message), { status });
+
+function hashDynamicText(value) {
+  const text = String(value ?? '').trim();
+  let first = 2166136261;
+  let second = 2246822519;
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    first = Math.imul(first ^ code, 16777619);
+    second = Math.imul(second ^ code, 3266489917);
+  }
+  return `${(first >>> 0).toString(36)}${(second >>> 0).toString(36)}`;
+}
+
+const dynamicFieldKey = (fieldKey, label = '') =>
+  `dynamic.field.${encodeURIComponent(String(fieldKey))}.${hashDynamicText(label)}`;
+const dynamicAreaKey = (areaId, property = 'name', text = '') =>
+  `dynamic.area.${areaId}.${property}.${hashDynamicText(text)}`;
+const dynamicMapKey = (mapId, name = '') =>
+  `dynamic.map.${mapId}.name.${hashDynamicText(name)}`;
+const dynamicRecordKey = (fieldKey, value) =>
+  `dynamic.record.${encodeURIComponent(String(fieldKey))}.${hashDynamicText(value)}`;
+
+export function getDynamicTerms() {
+  const terms = [];
+  const seen = new Set();
+  const add = (term) => {
+    if (!term.text || !term.text.trim() || seen.has(term.key)) return;
+    seen.add(term.key);
+    terms.push(term);
+  };
+
+  for (const map of db.prepare('SELECT id, name FROM maps ORDER BY id').all()) {
+    add({
+      key: dynamicMapKey(map.id, map.name),
+      text: map.name,
+      context: 'Nome de planta ou mapa',
+      termType: 'dynamic',
+      group: 'areas',
+    });
+  }
+
+  for (const area of db.prepare('SELECT id, name, sub_label, description FROM areas ORDER BY id').all()) {
+    add({
+      key: dynamicAreaKey(area.id, 'name', area.name),
+      text: area.name,
+      context: `Nome da área #${area.id}`,
+      termType: 'dynamic',
+      group: 'areas',
+    });
+    add({
+      key: dynamicAreaKey(area.id, 'sub_label', area.sub_label),
+      text: area.sub_label,
+      context: `Subtítulo da área #${area.id}`,
+      termType: 'dynamic',
+      group: 'areas',
+    });
+    add({
+      key: dynamicAreaKey(area.id, 'description', area.description),
+      text: area.description,
+      context: `Descrição da área #${area.id}`,
+      termType: 'dynamic',
+      group: 'areas',
+    });
+  }
+
+  for (const field of db.prepare("SELECT key, label FROM fields WHERE expr = '' ORDER BY sort_order, id").all()) {
+    add({
+      key: dynamicFieldKey(field.key, field.label),
+      text: field.label,
+      context: `Nome do campo (${field.key})`,
+      termType: 'dynamic',
+      group: 'fields',
+    });
+  }
+
+  const recordValues = db.prepare(`
+    SELECT DISTINCT f.key AS field_key, f.label AS field_label, j.value AS text
+    FROM records r, json_each(r.data) j
+    JOIN fields f ON f.key = j.key
+    WHERE f.type = 'text' AND f.expr = '' AND j.type = 'text' AND trim(j.value) <> ''
+  `).all();
+  for (const value of recordValues) {
+    add({
+      key: dynamicRecordKey(value.field_key, value.text),
+      text: value.text,
+      context: `Valor do campo "${value.field_label}" em registros importados ou cadastrados`,
+      termType: 'dynamic',
+      group: 'records',
+    });
+  }
+
+  return terms;
+}
 
 export function getConfiguredLanguages() {
   try {
@@ -44,14 +137,15 @@ export function getTranslationsForLang(code) {
   return {};
 }
 
-export function calculateProgress(code, translations) {
-  const total = MASTER_TERMS.length;
+export function calculateProgress(code, translations, dynamicTerms = getDynamicTerms()) {
+  const terms = MASTER_TERMS.concat(dynamicTerms);
+  const total = terms.length;
   if (code === DEFAULT_LANGUAGE) {
     return { total, translated: total, percentage: 100 };
   }
 
   let translated = 0;
-  for (const term of MASTER_TERMS) {
+  for (const term of terms) {
     const val = translations[term.key];
     if (typeof val === 'string' && val.trim().length > 0) {
       translated++;
@@ -64,12 +158,13 @@ export function calculateProgress(code, translations) {
 // Retorna todos os dados de tradução da fábrica
 router.get('/translations', (req, res) => {
   const langs = getConfiguredLanguages();
+  const dynamicTerms = getDynamicTerms();
   const translationsMap = {};
   const availableLanguages = langs.map((code) => {
     const info = SUPPORTED_LANGUAGES.find((l) => l.code === code) || { code, name: code, flag: '🌐' };
     const trans = getTranslationsForLang(code);
     translationsMap[code] = trans;
-    const progress = calculateProgress(code, trans);
+    const progress = calculateProgress(code, trans, dynamicTerms);
     return { ...info, ...progress };
   });
 
@@ -91,6 +186,7 @@ router.get('/translations', (req, res) => {
     supportedLanguages: SUPPORTED_LANGUAGES,
     translations: translationsMap,
     masterTerms: MASTER_TERMS,
+    dynamicTerms,
     aiConfigured: Boolean(aiKey),
     aiProvider,
     aiKeyMasked,

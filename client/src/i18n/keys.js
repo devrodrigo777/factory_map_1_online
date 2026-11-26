@@ -244,6 +244,8 @@ export const MASTER_TERMS = [
   { key: 'translation.export_json', text: 'Exportar JSON', context: 'Botão para baixar arquivo JSON de tradução' },
   { key: 'translation.import_json', text: 'Importar JSON', context: 'Botão para carregar arquivo JSON de tradução' },
   { key: 'translation.filter_all', text: 'Todos os termos ({count})', context: 'Filtro para ver todos os termos' },
+  { key: 'translation.filter_fixed', text: 'Termos fixos', context: 'Filtro para exibir termos estáticos da interface' },
+  { key: 'translation.filter_dynamic', text: 'Termos dinâmicos', context: 'Filtro para exibir áreas, campos e valores dos registros' },
   { key: 'translation.filter_pending', text: 'Pendentes ({count})', context: 'Filtro para ver apenas termos pendentes de tradução' },
   { key: 'translation.filter_completed', text: 'Traduzidos ({count})', context: 'Filtro para ver termos já traduzidos' },
   { key: 'translation.search_placeholder', text: 'Buscar termo por chave, texto ou contexto…', context: 'Campo de busca nos termos' },
@@ -332,3 +334,24 @@ export const MASTER_TERMS = [
 export const DEFAULT_TRANSLATIONS = Object.fromEntries(
   MASTER_TERMS.map((t) => [t.key, t.text])
 );
+
+function hashDynamicText(value) {
+  const text = String(value ?? '').trim();
+  let first = 2166136261;
+  let second = 2246822519;
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    first = Math.imul(first ^ code, 16777619);
+    second = Math.imul(second ^ code, 3266489917);
+  }
+  return `${(first >>> 0).toString(36)}${(second >>> 0).toString(36)}`;
+}
+
+export const dynamicFieldKey = (fieldKey, label = '') =>
+  `dynamic.field.${encodeURIComponent(String(fieldKey))}.${hashDynamicText(label)}`;
+export const dynamicAreaKey = (areaId, property = 'name', text = '') =>
+  `dynamic.area.${areaId}.${property}.${hashDynamicText(text)}`;
+export const dynamicMapKey = (mapId, name = '') =>
+  `dynamic.map.${mapId}.name.${hashDynamicText(name)}`;
+export const dynamicRecordKey = (fieldKey, value) =>
+  `dynamic.record.${encodeURIComponent(String(fieldKey))}.${hashDynamicText(value)}`;

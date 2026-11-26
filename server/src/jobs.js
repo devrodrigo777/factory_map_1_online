@@ -96,7 +96,9 @@ async function importOne(full, name, cfg, summary) {
     }
     const r = importRows({
       headers, rows, sheet, mapping: m.mapping, filename: name,
-      skipDuplicates: profile.options?.skipDuplicates !== false, userName: 'importação automática',
+      skipDuplicates: profile.options?.skipDuplicates !== false,
+      filterExpr: profile.options?.filterEnabled ? profile.options.filterExpr || '' : '',
+      userName: 'importação automática',
     });
     archive(full, name, cfg, 'importados');
     const warn = [m.unknown.length ? `colunas ignoradas (não estão no perfil): ${m.unknown.join(', ')}` : '', m.missing.length ? `colunas do perfil ausentes no arquivo: ${m.missing.join(', ')}` : ''].filter(Boolean).join('; ');

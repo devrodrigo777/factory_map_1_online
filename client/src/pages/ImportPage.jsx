@@ -160,7 +160,14 @@ export default function ImportPage() {
     setProfileId(chosen ? String(chosen.id) : '');
     setProfileName(chosen ? chosen.name : '');
     setInfo(chosen ? { name: chosen.name, auto, known: r.known, total: p.columns.length, fresh: r.fresh, missing: r.missing } : null);
-    if (chosen) setSkipDup(chosen.options?.skipDuplicates !== false);
+    if (chosen) {
+      setSkipDup(chosen.options?.skipDuplicates !== false);
+      setFilterEnabled(chosen.options?.filterEnabled === true);
+      setFilterExpr(typeof chosen.options?.filterExpr === 'string' ? chosen.options.filterExpr : '');
+    } else {
+      setFilterEnabled(false);
+      setFilterExpr('');
+    }
     pruneIgnoredFromDedup(r.next, p);
   };
 
@@ -179,7 +186,11 @@ export default function ImportPage() {
   const saveProfile = async () => {
     try {
       const mapping = preview.columns.map((c) => ({ header: c.name, ...map[c.index] }));
-      const saved = await api.saveProfile({ name: profileName.trim(), mapping, options: { skipDuplicates: skipDup } });
+      const saved = await api.saveProfile({
+        name: profileName.trim(),
+        mapping,
+        options: { skipDuplicates: skipDup, filterEnabled, filterExpr },
+      });
       await loadProfiles();
       setProfileId(String(saved.id));
       setInfo({ name: saved.name, auto: false, known: preview.columns.length, total: preview.columns.length, fresh: [], missing: [], saved: true });

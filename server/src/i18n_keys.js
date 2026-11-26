@@ -242,6 +242,8 @@ export const MASTER_TERMS = [
   { key: 'translation.export_json', text: 'Exportar JSON', context: 'Botão para baixar arquivo JSON de tradução' },
   { key: 'translation.import_json', text: 'Importar JSON', context: 'Botão para carregar arquivo JSON de tradução' },
   { key: 'translation.filter_all', text: 'Todos os termos ({count})', context: 'Filtro para ver todos os termos' },
+  { key: 'translation.filter_fixed', text: 'Termos fixos', context: 'Filtro para exibir termos estáticos da interface' },
+  { key: 'translation.filter_dynamic', text: 'Termos dinâmicos', context: 'Filtro para exibir áreas, campos e valores dos registros' },
   { key: 'translation.filter_pending', text: 'Pendentes ({count})', context: 'Filtro para ver apenas termos pendentes de tradução' },
   { key: 'translation.filter_completed', text: 'Traduzidos ({count})', context: 'Filtro para ver termos já traduzidos' },
   { key: 'translation.search_placeholder', text: 'Buscar termo por chave, texto ou contexto…', context: 'Campo de busca nos termos' },

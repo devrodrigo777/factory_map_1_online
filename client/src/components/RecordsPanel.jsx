@@ -4,12 +4,13 @@ import Icon from './Icons.jsx';
 import AreaHistory from './AreaHistory.jsx';
 import Lightbox from './Lightbox.jsx';
 import { useTranslation } from '../i18n/I18nContext.jsx';
+import { dynamicAreaKey, dynamicFieldKey, dynamicRecordKey } from '../i18n/keys.js';
 import { formatHours, formatValue, parsePhotoUrls, stageFor } from '../format.js';
 
 // Painel lateral com os bloqueios de uma área (macro: todos os equipamentos do setor;
 // detalhe: o(s) bloqueio(s) daquele equipamento).
 export default function RecordsPanel({ areaId, refreshKey, initialHistory = false, stages = [], onClose }) {
-  const { t } = useTranslation();
+  const { t, td } = useTranslation();
   const [tab, setTab] = useState('locks');
   const [history, setHistory] = useState(initialHistory);
   const [data, setData] = useState(null);
@@ -51,16 +52,17 @@ export default function RecordsPanel({ areaId, refreshKey, initialHistory = fals
     const val = r.values[f.key];
     const isPhoto = f.type === 'photo';
     const urls = isPhoto ? parsePhotoUrls(val) : [];
+    const displayValue = formatValue(f.type, val, f.key);
     return (
       <div key={f.key}>
-        <dt>{f.label}</dt>
+        <dt>{td(dynamicFieldKey(f.key, f.label), f.label)}</dt>
         <dd>
           {isPhoto ? (
             urls.length > 0 ? (
               <button
                 type="button"
                 className="photo-link-btn"
-                onClick={() => setLightbox({ title: f.label, urls })}
+                onClick={() => setLightbox({ title: td(dynamicFieldKey(f.key, f.label), f.label), urls })}
                 title={`Ver ${urls.length === 1 ? '1 foto anexada' : `${urls.length} fotos anexadas`}`}
               >
                 <Icon name="image" size={15} />
@@ -70,7 +72,9 @@ export default function RecordsPanel({ areaId, refreshKey, initialHistory = fals
               '—'
             )
           ) : (
-            formatValue(f.type, val, f.key)
+            f.type === 'text' && val != null
+              ? td(dynamicRecordKey(f.key, val), displayValue)
+              : displayValue
           )}
         </dd>
       </div>
@@ -81,7 +85,11 @@ export default function RecordsPanel({ areaId, refreshKey, initialHistory = fals
     <aside className={`records-panel${tab === 'history' ? ' wide' : ''}`} aria-label="Bloqueios da área">
       <header>
         <div>
-          <h2>{data?.area.name || t('records_panel.title_default', 'Bloqueios')}</h2>
+          <h2>
+            {data?.area.name
+              ? td(dynamicAreaKey(data.area.id, 'name', data.area.name), data.area.name)
+              : t('records_panel.title_default', 'Bloqueios')}
+          </h2>
           {data && (
             <p className="muted">
               {data.counts.active === 0
@@ -126,7 +134,11 @@ export default function RecordsPanel({ areaId, refreshKey, initialHistory = fals
             <article key={r.id} className={`lock-card ${r.active ? 'on' : 'off'}`}
               style={r.active && stages.length ? { borderLeftColor: stageFor(r.hours, stages).color } : undefined}>
               <header>
-                <strong>{titleKey ? formatValue('text', r.values[titleKey]) : `Registro ${r.id}`}</strong>
+                <strong>
+                  {titleKey
+                    ? td(dynamicRecordKey(titleKey, r.values[titleKey]), formatValue('text', r.values[titleKey]))
+                    : `Registro ${r.id}`}
+                </strong>
                 <span className={`badge ${r.active ? 'on' : 'off'}`}
                   style={r.active && stages.length ? { background: stageFor(r.hours, stages).color, color: '#fff' } : undefined}>
                   {r.active ? `${t('viewer.active_for', 'Ativo há')} ${formatHours(r.hours)}` : `${t('viewer.closed_badge', 'Encerrado')} · ${formatHours(r.hours)}`}

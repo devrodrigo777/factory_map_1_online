@@ -25,6 +25,7 @@ export function I18nProvider({ children }) {
   const [translationsMap, setTranslationsMap] = useState(() => ({
     [DEFAULT_LANGUAGE]: { ...DEFAULT_TRANSLATIONS },
   }));
+  const [dynamicTerms, setDynamicTerms] = useState([]);
 
   const [aiConfigured, setAiConfigured] = useState(false);
   const [aiKeyMasked, setAiKeyMasked] = useState(null);
@@ -38,6 +39,9 @@ export function I18nProvider({ children }) {
       const data = await api.getTranslations();
       if (data?.availableLanguages) {
         setAvailableLanguages(data.availableLanguages);
+      }
+      if (Array.isArray(data?.dynamicTerms)) {
+        setDynamicTerms(data.dynamicTerms);
       }
       if (data?.translations) {
         setTranslationsMap((prev) => ({
@@ -113,6 +117,19 @@ export function I18nProvider({ children }) {
     [language, translationsMap]
   );
 
+  const td = useCallback(
+    (key, fallback) => {
+      const translated = translationsMap[language]?.[key];
+      return typeof translated === 'string' && translated.trim() ? translated : fallback;
+    },
+    [language, translationsMap]
+  );
+
+  const masterTerms = useMemo(
+    () => MASTER_TERMS.map((term) => ({ ...term, termType: 'fixed' })).concat(dynamicTerms),
+    [dynamicTerms]
+  );
+
   const value = useMemo(
     () => ({
       language,
@@ -120,7 +137,7 @@ export function I18nProvider({ children }) {
       currentLanguage,
       availableLanguages,
       translations: translationsMap,
-      masterTerms: MASTER_TERMS,
+      masterTerms,
       supportedLanguages: SUPPORTED_LANGUAGES,
       aiConfigured,
       aiKeyMasked,
@@ -129,6 +146,7 @@ export function I18nProvider({ children }) {
       canManageAiKey,
       loading,
       t,
+      td,
       reloadTranslations,
     }),
     [
@@ -137,6 +155,7 @@ export function I18nProvider({ children }) {
       currentLanguage,
       availableLanguages,
       translationsMap,
+      masterTerms,
       aiConfigured,
       aiKeyMasked,
       aiProvider,
@@ -144,6 +163,7 @@ export function I18nProvider({ children }) {
       canManageAiKey,
       loading,
       t,
+      td,
       reloadTranslations,
     ]
   );
@@ -164,12 +184,13 @@ export function useTranslation() {
         }
         return text;
       },
+      td: (_key, fallback) => fallback,
       language: DEFAULT_LANGUAGE,
       setLanguage: () => {},
       currentLanguage: { code: DEFAULT_LANGUAGE, name: 'Português (Brasil)', flag: '🇧🇷' },
       availableLanguages: [],
       translations: {},
-      masterTerms: MASTER_TERMS,
+      masterTerms: MASTER_TERMS.map((term) => ({ ...term, termType: 'fixed' })),
       reloadTranslations: () => {},
     };
   }

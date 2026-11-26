@@ -5,11 +5,12 @@ import Shell from '../components/Shell.jsx';
 import { Columns, HBars } from '../components/Charts.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { useTranslation } from '../i18n/I18nContext.jsx';
+import { dynamicFieldKey, dynamicRecordKey } from '../i18n/keys.js';
 import { ROLE_LABELS, formatHours, formatInt, formatValue } from '../format.js';
 
 export default function Dashboard() {
   const toast = useToast();
-  const { t } = useTranslation();
+  const { t, td } = useTranslation();
   const [days, setDays] = useState('90');
   const [groupBy, setGroupBy] = useState('');
   const [fields, setFields] = useState([]);
@@ -33,7 +34,8 @@ export default function Dashboard() {
 
   const groupable = fields.filter((f) => f.type === 'text' || f.type === 'number');
   const k = data?.kpis;
-  const groupLabel = fields.find((f) => f.key === data?.group_by)?.label;
+  const groupField = fields.find((f) => f.key === data?.group_by);
+  const groupLabel = groupField ? td(dynamicFieldKey(groupField.key, groupField.label), groupField.label) : '';
   const missing = data ? ['locked_at', 'unlocked_at'].filter((r) => !data.roles[r]) : [];
 
   const filters = (
@@ -81,11 +83,15 @@ export default function Dashboard() {
                   <header className="card-head">
                     <h2>{groupLabel ? `Por ${groupLabel.toLowerCase()}` : t('dashboard.chart_by_group', 'Por grupo')}</h2>
                     <select value={groupBy || data.group_by || ''} onChange={(e) => setGroupBy(e.target.value)} aria-label="Agrupar por">
-                      {groupable.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                      {groupable.map((f) => <option key={f.key} value={f.key}>{td(dynamicFieldKey(f.key, f.label), f.label)}</option>)}
                     </select>
                   </header>
                   <p className="muted">{t('dashboard.active_now_legend', 'Ativos agora (forte) e total de bloqueios no período (claro).')}</p>
-                  <HBars items={data.by_group.map((g) => ({ label: g.label, value: g.active, second: g.total }))}
+                  <HBars items={data.by_group.map((g) => ({
+                    label: data.group_by ? td(dynamicRecordKey(data.group_by, g.label), g.label) : g.label,
+                    value: g.active,
+                    second: g.total,
+                  }))}
                     format={(v) => v} />
                 </section>
               )}
@@ -100,7 +106,10 @@ export default function Dashboard() {
               {dashboardCfg.chart_avg_by_group !== false && (
                 <section className="card">
                   <h2>Duração média por {groupLabel?.toLowerCase() || 'grupo'}</h2>
-                  <HBars items={data.avg_by_group.map((g) => ({ label: g.label, value: g.hours }))} format={formatHours}
+                  <HBars items={data.avg_by_group.map((g) => ({
+                    label: data.group_by ? td(dynamicRecordKey(data.group_by, g.label), g.label) : g.label,
+                    value: g.hours,
+                  }))} format={formatHours}
                     empty="Precisa de data de bloqueio e de desbloqueio." />
                 </section>
               )}
@@ -108,7 +117,10 @@ export default function Dashboard() {
               {dashboardCfg.chart_by_user !== false && (
                 <section className="card">
                   <h2>{t('dashboard.chart_top_users', 'Quem mais bloqueou')}</h2>
-                  <HBars items={data.by_user.map((u) => ({ label: u.label, value: u.count }))}
+                  <HBars items={data.by_user.map((u) => ({
+                    label: data.roles.locked_by ? td(dynamicRecordKey(data.roles.locked_by, u.label), u.label) : u.label,
+                    value: u.count,
+                  }))}
                     empty="Defina o campo “Quem bloqueou” em Campos e KPIs." />
                 </section>
               )}
@@ -116,7 +128,10 @@ export default function Dashboard() {
               {dashboardCfg.chart_top_equipment !== false && (
                 <section className="card">
                   <h2>{t('dashboard.chart_top_equipment', 'Equipamentos mais bloqueados')}</h2>
-                  <HBars items={data.top_equipment.map((e) => ({ label: e.label, value: e.count }))}
+                  <HBars items={data.top_equipment.map((e) => ({
+                    label: data.roles.equipment ? td(dynamicRecordKey(data.roles.equipment, e.label), e.label) : e.label,
+                    value: e.count,
+                  }))}
                     empty="Defina o campo “Equipamento” e a data de bloqueio em Campos e KPIs." />
                 </section>
               )}
@@ -125,7 +140,10 @@ export default function Dashboard() {
                 <section className="card">
                   <h2>{t('dashboard.chart_recurrence', 'Reincidência')}</h2>
                   <p className="muted">{t('dashboard.recurrence_desc', { days: data.recurrence_days })}</p>
-                  <HBars items={data.recurrence.map((e) => ({ label: e.label, value: e.recurrences }))} empty="Nenhuma reincidência no período." />
+                  <HBars items={data.recurrence.map((e) => ({
+                    label: data.roles.equipment ? td(dynamicRecordKey(data.roles.equipment, e.label), e.label) : e.label,
+                    value: e.recurrences,
+                  }))} empty="Nenhuma reincidência no período." />
                 </section>
               )}
 
@@ -136,14 +154,25 @@ export default function Dashboard() {
                     <div className="table-wrap">
                       <table className="table">
                         <thead><tr>
-                          {['equipment', 'sector', 'locked_by', 'locked_at'].filter((r) => data.roles[r]).map((r) => <th key={r}>{ROLE_LABELS[r]}</th>)}
+                          {['equipment', 'sector', 'locked_by', 'locked_at'].filter((r) => data.roles[r]).map((r) => {
+                            const field = fields.find((f) => f.key === data.roles[r]);
+                            const label = field?.label || ROLE_LABELS[r];
+                            return <th key={r}>{td(dynamicFieldKey(data.roles[r], label), label)}</th>;
+                          })}
                           <th>{t('dashboard.col_active_for', 'ATIVO HÁ')}</th>
                         </tr></thead>
                         <tbody>
                           {data.oldest_active.map((r) => (
                             <tr key={r.id}>
                               {['equipment', 'sector', 'locked_by', 'locked_at'].filter((x) => data.roles[x]).map((x) => (
-                                <td key={x}>{formatValue(x === 'locked_at' ? 'date' : 'text', r.values[data.roles[x]])}</td>
+                                <td key={x}>
+                                  {x !== 'locked_at' && r.values[data.roles[x]] != null
+                                    ? td(
+                                      dynamicRecordKey(data.roles[x], r.values[data.roles[x]]),
+                                      formatValue('text', r.values[data.roles[x]])
+                                    )
+                                    : formatValue('date', r.values[data.roles[x]])}
+                                </td>
                               ))}
                               <td><strong>{formatHours(r.hours)}</strong></td>
                             </tr>

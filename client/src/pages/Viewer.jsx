@@ -9,6 +9,7 @@ import { useAuth } from '../components/Auth.jsx';
 import UserMenu from '../components/UserMenu.jsx';
 import LanguageSelector from '../components/LanguageSelector.jsx';
 import { useTranslation } from '../i18n/I18nContext.jsx';
+import { dynamicAreaKey, dynamicMapKey, dynamicRecordKey } from '../i18n/keys.js';
 import { bbox, centroid, pointsAttr } from '../geometry.js';
 import { formatDateTime, formatHours, stageFor } from '../format.js';
 
@@ -44,7 +45,7 @@ function LockMarker({ x, y, k, count, label, color, onOpen }) {
 export default function Viewer() {
   const toast = useToast();
   const { user, can } = useAuth();
-  const { t } = useTranslation();
+  const { t, td } = useTranslation();
   const stageRef = useRef(null);
   const cache = useRef(new Map());
   const busyRef = useRef(false);
@@ -340,7 +341,10 @@ export default function Viewer() {
     );
   }
 
-  const crumbs = [...stack.map((s, i) => ({ name: s.name, index: i })), { name: map.name, index: null }];
+  const crumbs = [
+    ...stack.map((s, i) => ({ name: td(dynamicMapKey(s.id, s.name), s.name), index: i })),
+    { name: td(dynamicMapKey(map.id, map.name), map.name), index: null },
+  ];
   const hasFocusedArea = Boolean(panel?.areaId || highlightAreaId || selected?.id);
 
   const overlay = ({ k }) => (
@@ -364,8 +368,8 @@ export default function Viewer() {
             <polygon points={pointsAttr(a.points, map.width, map.height)} vectorEffect="non-scaling-stroke" />
             {a.show_label && (a.name || a.sub_label) && (
               <>
-                {a.name && <text x={cx} y={a.sub_label ? cy - 5 / k : cy} fontSize={14 / k} strokeWidth={3.5 / k}>{a.name}</text>}
-                {a.sub_label && <text className="area-sublabel" x={cx} y={a.name ? cy + 10 / k : cy} fontSize={10.5 / k} strokeWidth={2.5 / k}>{a.sub_label}</text>}
+                {a.name && <text x={cx} y={a.sub_label ? cy - 5 / k : cy} fontSize={14 / k} strokeWidth={3.5 / k}>{td(dynamicAreaKey(a.id, 'name', a.name), a.name)}</text>}
+                {a.sub_label && <text className="area-sublabel" x={cx} y={a.name ? cy + 10 / k : cy} fontSize={10.5 / k} strokeWidth={2.5 / k}>{td(dynamicAreaKey(a.id, 'sub_label', a.sub_label), a.sub_label)}</text>}
               </>
             )}
           </g>
@@ -379,7 +383,7 @@ export default function Viewer() {
         const color = locks.stages?.length ? stageFor(locks.areas[a.id].oldest_hours ?? 0, locks.stages).color : undefined;
         return (
           <LockMarker key={`lock-${a.id}`} x={cx} y={cy - dy} k={k} count={count} color={color}
-            label={`${count} ${count === 1 ? 'bloqueio ativo' : 'bloqueios ativos'} em ${a.name || 'área'}`}
+            label={`${count} ${count === 1 ? 'bloqueio ativo' : 'bloqueios ativos'} em ${a.name ? td(dynamicAreaKey(a.id, 'name', a.name), a.name) : 'área'}`}
             onOpen={() => phase === 'idle' && showLockPanel(a)} />
         );
       })}
@@ -516,7 +520,7 @@ export default function Viewer() {
 
       {tip && (
         <div className="tooltip" style={{ left: tip.x + 16, top: tip.y + 16 }}>
-          <strong>{tip.area.name || 'Área sem nome'}</strong>
+          <strong>{tip.area.name ? td(dynamicAreaKey(tip.area.id, 'name', tip.area.name), tip.area.name) : 'Área sem nome'}</strong>
           {tip.area.target_map_id && <span>Clique para ver o detalhe</span>}
         </div>
       )}
@@ -525,7 +529,7 @@ export default function Viewer() {
 }
 
 function PresentationPanel({ area, lockCount, durationSeconds = 10, onSelect, zoomEnabled = true, onToggleZoom }) {
-  const { t } = useTranslation();
+  const { t, td } = useTranslation();
   const [data, setData] = useState(null);
   const [timeLeft, setTimeLeft] = useState(durationSeconds);
 
@@ -572,7 +576,9 @@ function PresentationPanel({ area, lockCount, durationSeconds = 10, onSelect, zo
             {Math.ceil(timeLeft)}s
           </span>
         </div>
-        <h2 className="presentation-title">{area.name || t('common.none', 'Área sem nome')}</h2>
+        <h2 className="presentation-title">
+          {area.name ? td(dynamicAreaKey(area.id, 'name', area.name), area.name) : t('common.none', 'Área sem nome')}
+        </h2>
         {area.code && <p className="code" style={{ margin: 0, fontSize: 13, color: 'var(--steel)' }}>{area.code}</p>}
         <div className="presentation-progress-bar">
           <div className="presentation-progress-fill" style={{ width: `${pct}%` }} />
@@ -609,7 +615,11 @@ function PresentationPanel({ area, lockCount, durationSeconds = 10, onSelect, zo
                 <div key={r.id} className="pres-summary-item">
                   <div className="pres-summary-info">
                     <strong className="pres-summary-name">
-                      {equipKey ? (r.values[equipKey] || `Reg #${r.id}`) : `Reg #${r.id}`}
+                      {equipKey
+                        ? (r.values[equipKey]
+                          ? td(dynamicRecordKey(equipKey, r.values[equipKey]), r.values[equipKey])
+                          : `Reg #${r.id}`)
+                        : `Reg #${r.id}`}
                     </strong>
                     {(r.t0 != null || r.created_at) && (
                       <small className="pres-summary-date">

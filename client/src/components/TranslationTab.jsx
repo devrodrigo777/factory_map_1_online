@@ -32,6 +32,7 @@ export default function TranslationTab() {
   const fileInputRef = useRef(null);
 
   const [selectedLang, setSelectedLang] = useState(DEFAULT_LANGUAGE);
+  const [termType, setTermType] = useState('all');
   const [filterMode, setFilterMode] = useState('all'); // 'all' | 'pending' | 'completed'
   const [searchQuery, setSearchQuery] = useState('');
   const [editingValues, setEditingValues] = useState({});
@@ -52,6 +53,10 @@ export default function TranslationTab() {
   const [loadingModels, setLoadingModels] = useState(false);
   const [isEditingModel, setIsEditingModel] = useState(false);
   const [savingModel, setSavingModel] = useState(false);
+
+  useEffect(() => {
+    reloadTranslations();
+  }, [reloadTranslations]);
 
   useEffect(() => {
     if (aiProvider) setSelectedProvider(aiProvider);
@@ -94,8 +99,11 @@ export default function TranslationTab() {
   const filteredTerms = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     return masterTerms.filter((term) => {
+      if (termType !== 'all' && term.termType !== termType) return false;
       const currentVal =
-        editingValues[term.key] !== undefined ? editingValues[term.key] : currentDict[term.key] || '';
+        editingValues[term.key] !== undefined
+          ? editingValues[term.key]
+          : currentDict[term.key] ?? (selectedLang === DEFAULT_LANGUAGE ? term.text : '');
       const isPending = !currentVal || currentVal.trim() === '';
 
       if (filterMode === 'pending' && !isPending) return false;
@@ -109,7 +117,7 @@ export default function TranslationTab() {
         currentVal.toLowerCase().includes(q)
       );
     });
-  }, [masterTerms, filterMode, searchQuery, editingValues, currentDict]);
+  }, [masterTerms, termType, filterMode, searchQuery, editingValues, currentDict, selectedLang]);
 
   // Contadores
   const stats = useMemo(() => {
@@ -117,12 +125,16 @@ export default function TranslationTab() {
     let completed = 0;
     for (const term of masterTerms) {
       const val =
-        editingValues[term.key] !== undefined ? editingValues[term.key] : currentDict[term.key] || '';
+        editingValues[term.key] !== undefined
+          ? editingValues[term.key]
+          : currentDict[term.key] ?? (selectedLang === DEFAULT_LANGUAGE ? term.text : '');
       if (!val || val.trim() === '') pending++;
       else completed++;
     }
     return {
       total: masterTerms.length,
+      fixedTotal: masterTerms.filter((term) => term.termType !== 'dynamic').length,
+      dynamicTotal: masterTerms.filter((term) => term.termType === 'dynamic').length,
       pending,
       completed,
       percentage:
@@ -189,7 +201,9 @@ export default function TranslationTab() {
   const handleBatchAiTranslate = async () => {
     const pendingTerms = masterTerms.filter((term) => {
       const val =
-        editingValues[term.key] !== undefined ? editingValues[term.key] : currentDict[term.key] || '';
+        editingValues[term.key] !== undefined
+          ? editingValues[term.key]
+          : currentDict[term.key] ?? (selectedLang === DEFAULT_LANGUAGE ? term.text : '');
       return !val || val.trim() === '';
     });
 
@@ -767,6 +781,18 @@ export default function TranslationTab() {
             />
           </div>
 
+          <div className="seg" role="group" aria-label="Tipo de termo">
+            <button type="button" className={`btn ${termType === 'all' ? 'active' : ''}`} onClick={() => setTermType('all')}>
+              {t('translation.filter_all', { count: stats.total })}
+            </button>
+            <button type="button" className={`btn ${termType === 'fixed' ? 'active' : ''}`} onClick={() => setTermType('fixed')}>
+              {t('translation.filter_fixed', 'Termos fixos')} ({stats.fixedTotal})
+            </button>
+            <button type="button" className={`btn ${termType === 'dynamic' ? 'active' : ''}`} onClick={() => setTermType('dynamic')}>
+              {t('translation.filter_dynamic', 'Termos dinâmicos')} ({stats.dynamicTotal})
+            </button>
+          </div>
+
           <div className="seg" role="group" aria-label="Filtro de termos">
             <button
               type="button"
@@ -808,7 +834,7 @@ export default function TranslationTab() {
                 const currentVal =
                   editingValues[term.key] !== undefined
                     ? editingValues[term.key]
-                    : currentDict[term.key] || '';
+                    : currentDict[term.key] ?? (selectedLang === DEFAULT_LANGUAGE ? term.text : '');
                 const isDirty = dirtyKeys.has(term.key);
                 const isTranslating = translatingKeys.has(term.key);
 

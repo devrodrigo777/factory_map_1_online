@@ -2,10 +2,13 @@ import { useEffect, useState } from 'react';
 import { api } from '../api.js';
 import { HBars, Timeline } from './Charts.jsx';
 import Icon from './Icons.jsx';
+import { useTranslation } from '../i18n/I18nContext.jsx';
+import { dynamicRecordKey } from '../i18n/keys.js';
 import { formatHours, formatInt, stageFor } from '../format.js';
 
 // Aba "Histórico" do painel do cadeado: ranking, reincidência e linha do tempo por equipamento.
 export default function AreaHistory({ areaId, refreshKey }) {
+  const { td } = useTranslation();
   const [days, setDays] = useState(90);
   const [data, setData] = useState(null);
   const [error, setError] = useState('');
@@ -46,14 +49,19 @@ export default function AreaHistory({ areaId, refreshKey }) {
           </div>
 
           <h3>Equipamentos mais bloqueados</h3>
-          <HBars items={data.groups.slice(0, 8).map((g) => ({ label: g.name, value: g.count }))} />
+          <HBars items={data.groups.slice(0, 8).map((g) => ({
+            label: data.equipment_key ? td(dynamicRecordKey(data.equipment_key, g.name), g.name) : g.name,
+            value: g.count,
+          }))} />
 
           <h3>Reincidência <small>(novo bloqueio em até {data.recurrence_days} dias)</small></h3>
           {recurrent.length === 0 ? <p className="muted">Nenhuma reincidência no período.</p> : (
             <ul className="rec-list">
               {recurrent.map((g) => (
                 <li key={g.name}>
-                  <span className="rl-name" title={g.name}>{g.name}</span>
+                  <span className="rl-name" title={g.name}>
+                    {data.equipment_key ? td(dynamicRecordKey(data.equipment_key, g.name), g.name) : g.name}
+                  </span>
                   <span><strong>{g.recurrences}</strong> de {g.count}</span>
                   <small>entre bloqueios: {formatHours(g.mtbl_hours)}</small>
                 </li>

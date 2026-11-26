@@ -467,7 +467,14 @@ router.get('/areas/:id/history', (req, res) => {
   let recs = [];
   try { recs = matchedForArea(st, area); } catch (e) { throw httpError(400, `Filtro da área com erro: ${e.message}`); }
   const { _events, ...out } = equipmentAnalysis(st, recs, { fromMs: now - days * 86400000, toMs: now, recurrenceDays: cfg.recurrence_days, now, fallbackName: area.name });
-  res.json({ area: { id: area.id, name: area.name }, days, recurrence_days: cfg.recurrence_days, stages: cfg.lock_stages, ...out });
+  res.json({
+    area: { id: area.id, name: area.name },
+    equipment_key: st.ctx.role.equipment || null,
+    days,
+    recurrence_days: cfg.recurrence_days,
+    stages: cfg.lock_stages,
+    ...out,
+  });
 });
 
 // ---------- estatísticas / KPIs ----------
@@ -1035,7 +1042,11 @@ router.post('/import-profiles', (req, res) => {
       ...(m.action === 'new' ? { label: String(m.label ?? m.header).trim(), type: TYPES.includes(m.type) ? m.type : 'text' } : {}),
     };
   });
-  const options = { skipDuplicates: req.body.options?.skipDuplicates !== false };
+  const options = {
+    skipDuplicates: req.body.options?.skipDuplicates !== false,
+    filterEnabled: req.body.options?.filterEnabled === true,
+    filterExpr: String(req.body.options?.filterExpr ?? '').trim(),
+  };
   db.prepare(`INSERT INTO import_profiles (name, mapping, options) VALUES (?, ?, ?)
     ON CONFLICT(name) DO UPDATE SET mapping = excluded.mapping, options = excluded.options, updated_at = datetime('now')`)
     .run(name, JSON.stringify(mapping), JSON.stringify(options));

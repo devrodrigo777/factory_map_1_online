@@ -3,11 +3,14 @@ import { api } from '../api.js';
 import Shell from '../components/Shell.jsx';
 import Icon from '../components/Icons.jsx';
 import { useToast } from '../components/Toast.jsx';
+import { useTranslation } from '../i18n/I18nContext.jsx';
+import { dynamicAreaKey, dynamicFieldKey, dynamicMapKey } from '../i18n/keys.js';
 
 const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 export default function Reports() {
   const toast = useToast();
+  const { td } = useTranslation();
   const [fields, setFields] = useState([]);
   const [cols, setCols] = useState(null); // null = padrão do sistema
   const [sectors, setSectors] = useState([]);
@@ -30,7 +33,12 @@ export default function Reports() {
         const all = [];
         for (const m of maps) {
           const full = await api.getMap(m.id);
-          full.areas.filter((a) => a.show_lock && a.lock_filter).forEach((a) => all.push({ id: a.id, label: `${m.name} › ${a.name || `Área ${a.id}`}` }));
+          full.areas.filter((a) => a.show_lock && a.lock_filter).forEach((a) => all.push({
+            id: a.id,
+            mapId: m.id,
+            mapName: m.name,
+            areaName: a.name || `Área ${a.id}`,
+          }));
         }
         setAreas(all);
         if (all[0]) setAreaId(String(all[0].id));
@@ -55,7 +63,8 @@ export default function Reports() {
           <div className="chips-pick">
             {fields.map((f) => (
               <label key={f.key} className={`chip-check ${isOn(f.key) ? 'on' : ''}`}>
-                <input type="checkbox" checked={!!isOn(f.key)} onChange={() => toggle(f.key)} />{f.label}{f.computed ? ' ƒ' : ''}
+                <input type="checkbox" checked={!!isOn(f.key)} onChange={() => toggle(f.key)} />
+                {td(dynamicFieldKey(f.key, f.label), f.label)}{f.computed ? ' ƒ' : ''}
               </label>
             ))}
           </div>
@@ -91,7 +100,15 @@ export default function Reports() {
             <>
               <div className="form-grid">
                 <label className="field">Área
-                  <select value={areaId} onChange={(e) => setAreaId(e.target.value)}>{areas.map((a) => <option key={a.id} value={a.id}>{a.label}</option>)}</select>
+                  <select value={areaId} onChange={(e) => setAreaId(e.target.value)}>
+                    {areas.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {td(dynamicMapKey(a.mapId, a.mapName), a.mapName)} › {a.areaName.startsWith('Área ')
+                          ? a.areaName
+                          : td(dynamicAreaKey(a.id, 'name', a.areaName), a.areaName)}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label className="field">Período
                   <select value={days} onChange={(e) => setDays(Number(e.target.value))}>

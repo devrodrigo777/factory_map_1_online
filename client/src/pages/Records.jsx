@@ -8,12 +8,13 @@ import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../components/ConfirmModal.jsx';
 import { useAuth } from '../components/Auth.jsx';
 import { useTranslation } from '../i18n/I18nContext.jsx';
+import { dynamicFieldKey, dynamicRecordKey } from '../i18n/keys.js';
 import { formatDateTime, formatInt, formatValue, nowInput, parsePhotoUrls, toInputDate } from '../format.js';
 
 export default function Records() {
   const toast = useToast();
   const confirm = useConfirm();
-  const { t } = useTranslation();
+  const { t, td } = useTranslation();
   const { can } = useAuth();
   const canEdit = can('operator');
   const [fields, setFields] = useState([]);
@@ -140,7 +141,7 @@ export default function Records() {
                 {cols.map((f) => (
                   <th key={f.key} className={f.type === 'number' ? 'num' : ''}>
                     <button className="th-btn" onClick={() => toggleSort(f.key)}>
-                      {f.label}{f.computed ? ' ƒ' : ''}
+                      {td(dynamicFieldKey(f.key, f.label), f.label)}{f.computed ? ' ƒ' : ''}
                       {sort.key === f.key && <span aria-hidden="true">{sort.dir === 'asc' ? ' ▲' : ' ▼'}</span>}
                     </button>
                   </th>
@@ -160,7 +161,10 @@ export default function Records() {
                     const val = r.values[f.key];
                     const isPhoto = f.type === 'photo';
                     const urls = isPhoto ? parsePhotoUrls(val) : [];
-                    const displayVal = formatValue(f.type, val, f.key);
+                    const rawDisplayVal = formatValue(f.type, val, f.key);
+                    const displayVal = f.type === 'text' && val != null
+                      ? td(dynamicRecordKey(f.key, val), rawDisplayVal)
+                      : rawDisplayVal;
                     const titleText = !isPhoto && displayVal && displayVal !== '—' ? String(displayVal) : undefined;
                     return (
                       <td key={f.key} className={f.type === 'number' ? 'num' : ''} title={titleText}>
@@ -169,7 +173,7 @@ export default function Records() {
                             <button
                               type="button"
                               className="photo-link-btn"
-                              onClick={() => setLightbox({ title: f.label, urls })}
+                              onClick={() => setLightbox({ title: td(dynamicFieldKey(f.key, f.label), f.label), urls })}
                               title={`Ver ${urls.length === 1 ? '1 foto anexada' : `${urls.length} fotos anexadas`}`}
                             >
                               <Icon name="image" size={14} />
@@ -239,7 +243,7 @@ export default function Records() {
 
 function RecordForm({ fields, initial, onClose, onSaved }) {
   const toast = useToast();
-  const { t } = useTranslation();
+  const { t, td } = useTranslation();
   const [values, setValues] = useState(() => Object.fromEntries(fields.map((f) => {
     const v = initial.values[f.key];
     return [f.key, v == null ? '' : f.type === 'date' ? toInputDate(v) : v];
@@ -261,7 +265,7 @@ function RecordForm({ fields, initial, onClose, onSaved }) {
       footer={<><button className="btn" onClick={onClose}>{t('common.cancel', 'Cancelar')}</button><button className="btn primary" onClick={save} disabled={saving}>{saving ? t('common.saving', 'Salvando…') : t('common.save', 'Salvar')}</button></>}>
       <div className="form-grid">
         {fields.map((f) => (
-          <label key={f.key} className="field">{f.label}
+          <label key={f.key} className="field">{td(dynamicFieldKey(f.key, f.label), f.label)}
             <input
               type={f.type === 'number' ? 'number' : f.type === 'date' ? 'datetime-local' : f.type === 'photo' ? 'url' : 'text'}
               placeholder={f.type === 'photo' ? 'https://exemplo.com/foto.jpg' : undefined}
@@ -282,14 +286,15 @@ const ACTION = {
 };
 
 function ChangeList({ changes }) {
+  const { td } = useTranslation();
   if (!changes.length) return null;
   return (
     <ul className="changes">
       {changes.map((c, i) => (
         <li key={i}>
-          <span className="ch-field">{c.l}</span>
-          {'from' in c && c.from != null && c.from !== '' && <del>{String(c.from)}</del>}
-          {'to' in c && <ins>{c.to == null || c.to === '' ? '(vazio)' : String(c.to)}</ins>}
+          <span className="ch-field">{td(dynamicFieldKey(c.k, c.l), c.l)}</span>
+          {'from' in c && c.from != null && c.from !== '' && <del>{td(dynamicRecordKey(c.k, c.from), String(c.from))}</del>}
+          {'to' in c && <ins>{c.to == null || c.to === '' ? '(vazio)' : td(dynamicRecordKey(c.k, c.to), String(c.to))}</ins>}
         </li>
       ))}
     </ul>

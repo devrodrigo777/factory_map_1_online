@@ -6,6 +6,7 @@ import ExprInput from './ExprInput.jsx';
 import { useToast } from './Toast.jsx';
 import { useConfirm } from './ConfirmModal.jsx';
 import { useTranslation } from '../i18n/I18nContext.jsx';
+import { dynamicAreaKey, dynamicFieldKey, dynamicMapKey } from '../i18n/keys.js';
 import { centroid, clamp, pointsAttr, rectPoints } from '../geometry.js';
 
 const COLORS = ['#2B5C8F', '#E4572E', '#2E8B6B', '#B8860B', '#7B4FA3', '#C23B6B'];
@@ -18,7 +19,7 @@ const MAX_HISTORY = 30; // Suporta histórico de pelo menos 10 passos (até 30)
 export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onOpenMap }) {
   const toast = useToast();
   const confirm = useConfirm();
-  const { t } = useTranslation();
+  const { t, td } = useTranslation();
   const stageRef = useRef(null);
   const imgInput = useRef(null);
 
@@ -526,8 +527,8 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
 
             {a.show_label && (a.name || a.sub_label) && (!isMulti || !isSel) && (
               <>
-                {a.name && <text x={cx} y={a.sub_label ? cy - 5 / k : cy} fontSize={14 / k} strokeWidth={3.5 / k}>{a.name}</text>}
-                {a.sub_label && <text className="area-sublabel" x={cx} y={a.name ? cy + 10 / k : cy} fontSize={10.5 / k} strokeWidth={2.5 / k}>{a.sub_label}</text>}
+                {a.name && <text x={cx} y={a.sub_label ? cy - 5 / k : cy} fontSize={14 / k} strokeWidth={3.5 / k}>{td(dynamicAreaKey(a.id, 'name', a.name), a.name)}</text>}
+                {a.sub_label && <text className="area-sublabel" x={cx} y={a.name ? cy + 10 / k : cy} fontSize={10.5 / k} strokeWidth={2.5 / k}>{td(dynamicAreaKey(a.id, 'sub_label', a.sub_label), a.sub_label)}</text>}
               </>
             )}
           </g>
@@ -727,7 +728,7 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
                           }}
                         >
                           <span className="swatch" style={{ background: a.color }} />
-                          <span>{a.name || 'Sem nome'}</span>
+                          <span>{a.name ? td(dynamicAreaKey(a.id, 'name', a.name), a.name) : 'Sem nome'}</span>
                           {isMulti && isSelectedInList && <span className="multi-check-tag">✓</span>}
                           {a.target_map_id && <Icon name="open" size={15} />}
                         </button>
@@ -765,7 +766,9 @@ export default function Editor({ mapId, maps, onChanged, onDirty, onDeleted, onO
                 <label className="field">Ao clicar, abrir
                   <select value={selArea.target_map_id ?? ''} onChange={(e) => patchArea(selArea.uid, { target_map_id: e.target.value ? Number(e.target.value) : null })}>
                     <option value="">Apenas mostrar informações</option>
-                    {otherMaps.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    {otherMaps.map((m) => (
+                      <option key={m.id} value={m.id}>{td(dynamicMapKey(m.id, m.name), m.name)}</option>
+                    ))}
                   </select>
                   {otherMaps.length === 0 && <small>Envie outra imagem para usá-la como detalhe.</small>}
                 </label>
@@ -1069,7 +1072,9 @@ function DisplayFieldsConfig({ fields, value = [], onChange }) {
                     onChange={() => toggleCheck(idx)}
                   />
                   <span className="field-order-label">
-                    {it.label}{it.computed ? ' ƒ' : ''}
+                    {it.key !== '__separator__'
+                      ? td(dynamicFieldKey(it.key, it.label), it.label)
+                      : it.label}{it.computed ? ' ƒ' : ''}
                   </span>
                 </label>
                 <div className="field-order-actions">
