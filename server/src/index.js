@@ -171,6 +171,12 @@ function getQueries() {
                            lock_filter, show_lock, display_fields)
         VALUES (@map_id, @name, @sub_label, @code, @description, @points, @color, @opacity, @show_label, @target_map_id, @sort_order,
                 @lock_filter, @show_lock, @display_fields)`),
+      updateArea: currentDb.prepare(`
+        UPDATE areas SET name = @name, sub_label = @sub_label, code = @code, description = @description, points = @points,
+                         color = @color, opacity = @opacity, show_label = @show_label, target_map_id = @target_map_id,
+                         sort_order = @sort_order, lock_filter = @lock_filter, show_lock = @show_lock, display_fields = @display_fields
+        WHERE id = @id AND map_id = @map_id`),
+      deleteArea: currentDb.prepare('DELETE FROM areas WHERE id = ? AND map_id = ?'),
     };
     queryMap.set(currentDb, q);
   }
@@ -187,7 +193,15 @@ const areaOut = (a) => ({
 });
 const withAreas = (m) => (m ? { ...mapOut(m), areas: getQueries().areas.all(m.id).map(areaOut) } : null);
 
-function cleanArea(a, mapId, validIds, index) {
+function cleanArea(a, mapId, validIds, existingAreaIds, index) {
+  let areaId = null;
+  if (a.id != null) {
+    areaId = Number(a.id);
+    if (!Number.isSafeInteger(areaId) || !existingAreaIds.has(areaId)) {
+      throw httpError(400, 'Uma das áreas foi alterada por outro usuário. Atualize a planta e tente novamente.');
+    }
+  }
+
   const points = (Array.isArray(a.points) ? a.points : [])
     .map((p) => [clamp(Number(p?.[0]), 0, 1), clamp(Number(p?.[1]), 0, 1)])
     .filter((p) => p.every(Number.isFinite));
@@ -204,6 +218,7 @@ function cleanArea(a, mapId, validIds, index) {
   }
   const display = (Array.isArray(a.display_fields) ? a.display_fields : []).map(String).slice(0, 50);
   return {
+    id: areaId,
     map_id: mapId,
     name: String(a.name ?? '').slice(0, 120),
     sub_label: String(a.sub_label ?? '').slice(0, 120),
@@ -296,10 +311,23 @@ app.put('/api/maps/:id/areas', (req, res) => {
   if (!getQueries().one.get(id)) throw httpError(404, 'Planta não encontrada.');
   if (!Array.isArray(req.body.areas)) throw httpError(400, 'Formato inválido.');
   const validIds = new Set(getQueries().list.all().map((m) => m.id));
-  const rows = req.body.areas.map((a, i) => cleanArea(a, id, validIds, i));
+  const existingAreaIds = new Set(getQueries().areas.all(id).map((area) => area.id));
+  const rows = req.body.areas.map((a, i) => cleanArea(a, id, validIds, existingAreaIds, i));
+  const retainedAreaIds = new Set(rows.filter((area) => area.id != null).map((area) => area.id));
+  if (retainedAreaIds.size !== rows.filter((area) => area.id != null).length) {
+    throw httpError(400, 'A lista contém áreas duplicadas.');
+  }
   db.transaction(() => {
-    db.prepare('DELETE FROM areas WHERE map_id = ?').run(id);
-    rows.forEach((r) => getQueries().insertArea.run(r));
+    rows.forEach((area) => {
+      if (area.id == null) {
+        const newArea = { ...area };
+        delete newArea.id;
+        getQueries().insertArea.run(newArea);
+      } else getQueries().updateArea.run(area);
+    });
+    for (const areaId of existingAreaIds) {
+      if (!retainedAreaIds.has(areaId)) getQueries().deleteArea.run(areaId, id);
+    }
     db.prepare("UPDATE maps SET updated_at = datetime('now') WHERE id = ?").run(id);
   })();
   res.json(withAreas(getQueries().one.get(id)));

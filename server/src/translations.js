@@ -27,6 +27,33 @@ const dynamicMapKey = (mapId, name = '') =>
 const dynamicRecordKey = (fieldKey, value) =>
   `dynamic.record.${encodeURIComponent(String(fieldKey))}.${hashDynamicText(value)}`;
 
+function restoreAreaTranslations(translations) {
+  const areas = db.prepare('SELECT id, name, sub_label, description FROM areas ORDER BY id').all();
+  const currentAreaIds = new Set(areas.map((area) => String(area.id)));
+  const previousTranslations = new Map();
+
+  for (const [key, value] of Object.entries(translations)) {
+    const match = /^dynamic\.area\.(\d+)\.(name|sub_label|description)\.([a-z0-9]+)$/.exec(key);
+    if (!match || currentAreaIds.has(match[1]) || typeof value !== 'string' || !value.trim()) continue;
+    const signature = `${match[2]}.${match[3]}`;
+    if (!previousTranslations.has(signature)) previousTranslations.set(signature, new Set());
+    previousTranslations.get(signature).add(value);
+  }
+
+  for (const area of areas) {
+    for (const property of ['name', 'sub_label', 'description']) {
+      const text = area[property];
+      if (!text || !text.trim()) continue;
+      const key = dynamicAreaKey(area.id, property, text);
+      if (typeof translations[key] === 'string' && translations[key].trim()) continue;
+      const candidates = previousTranslations.get(`${property}.${hashDynamicText(text)}`);
+      if (candidates?.size === 1) translations[key] = candidates.values().next().value;
+    }
+  }
+
+  return translations;
+}
+
 export function getDynamicTerms() {
   const terms = [];
   const seen = new Set();
@@ -124,17 +151,17 @@ export function getTranslationsForLang(code) {
         Object.assign(base, overrides);
       }
     } catch {}
-    return base;
+    return restoreAreaTranslations(base);
   }
 
   try {
     const raw = getSetting(`i18n_translations_${code}`);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') return parsed;
+      if (parsed && typeof parsed === 'object') return restoreAreaTranslations(parsed);
     }
   } catch {}
-  return {};
+  return restoreAreaTranslations({});
 }
 
 export function calculateProgress(code, translations, dynamicTerms = getDynamicTerms()) {
