@@ -441,6 +441,9 @@ router.post('/translations/ai-translate', async (req, res, next) => {
     }
 
     if (!groqResponse.ok) {
+      if (groqResponse.status === 429) {
+        throw httpError(429, 'O limite de requisições por minuto foi atingido. Aguarde 30 segundos e tente novamente.');
+      }
       const errText = await groqResponse.text().catch(() => '');
       let errorDetail = 'verifique a chave de API informada.';
       try {
