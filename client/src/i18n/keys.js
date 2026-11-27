@@ -122,8 +122,6 @@ export const MASTER_TERMS = [
   { key: 'records_panel.expand_info', text: 'Expandir mais informações', context: 'Ação e acessibilidade do chevron para expandir dados do cadeado' },
   { key: 'records_panel.collapse_info', text: 'Contrair informações', context: 'Ação e acessibilidade do chevron para recolher dados do cadeado' },
   { key: 'records_panel.area_filter_error', text: 'Filtro da área com erro', context: 'Mensagem de erro na expressão da área' },
-  { key: 'records_panel.carousel_position', text: 'Bloqueio {current} de {total}', context: 'Posição e quantidade de bloqueios no carrossel móvel' },
-  { key: 'records_panel.carousel_progress', text: 'Posição do bloqueio', context: 'Rótulo acessível da barra de progresso do carrossel' },
 
   // ---------- TELA DE REGISTROS (RECORDS) ----------
   { key: 'records.title', text: 'Registros de bloqueio', context: 'Título principal da página de registros' },
