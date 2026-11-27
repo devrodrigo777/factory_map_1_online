@@ -752,6 +752,7 @@ select { min-height: 40px; border: 1px solid var(--line); border-radius: 8px; ba
 
 .records-panel.wide { width: min(560px, calc(100% - 28px)); transition: width 0.25s var(--ease); }
 .viewer-body:has(.records-panel.wide) .stage-controls { right: min(574px, 100%); }
+@media (max-width: 640px) { .records-panel.wide { width: auto; } }
 .tabs-mini { display: flex; gap: 4px; padding: 0 14px; border-bottom: 1px solid var(--line); }
 .tabs-mini button { background: none; border: 0; padding: 10px 12px; font-weight: 700; color: var(--steel); cursor: pointer; border-bottom: 3px solid transparent; min-height: 44px; }
 .tabs-mini button.on { color: var(--ink); border-bottom-color: var(--signal); }
