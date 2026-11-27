@@ -5,11 +5,13 @@ import ExprInput from '../components/ExprInput.jsx';
 import Icon from '../components/Icons.jsx';
 import { useToast } from '../components/Toast.jsx';
 import { useConfirm } from '../components/ConfirmModal.jsx';
+import { useTranslation } from '../i18n/I18nContext.jsx';
 import { ROLE_LABELS } from '../format.js';
 
 const TYPE_LABEL = { text: 'Texto', number: 'Número', date: 'Data/hora', photo: 'Foto URL' };
 
 export default function Fields() {
+  const { t } = useTranslation();
   const toast = useToast();
   const confirm = useConfirm();
   const [tab, setTab] = useState('fields'); // 'fields' | 'default_kpis'
@@ -84,23 +86,23 @@ export default function Fields() {
             Campos e regras
           </button>
           <button role="tab" aria-selected={tab === 'default_kpis'} className={tab === 'default_kpis' ? 'on' : ''} onClick={() => setTab('default_kpis')}>
-            KPIs padrões
+            {t('fields.default_kpis_tab', 'KPIs padrões')}
           </button>
         </div>
 
         {tab === 'default_kpis' ? (
           <>
             <section className="card">
-              <h2>Cards de indicadores do Dashboard</h2>
-              <p className="muted">Ative ou desative os cards numéricos exibidos no topo do Dashboard.</p>
+              <h2>{t('fields.dashboard_cards_title', 'Cards de indicadores do Dashboard')}</h2>
+              <p className="muted">{t('fields.dashboard_cards_desc', 'Ative ou desative os cards numéricos exibidos no topo do Dashboard.')}</p>
               <div className="choice-list">
                 {[
-                  { key: 'kpi_active', label: 'Bloqueios ativos agora', desc: 'Contagem dos bloqueios que estão abertos no momento' },
-                  { key: 'kpi_active_equipment', label: 'Equipamentos bloqueados', desc: 'Quantidade de equipamentos únicos com bloqueios ativos' },
-                  { key: 'kpi_oldest_active', label: 'Bloqueio ativo mais antigo', desc: 'Duração em horas/dias do bloqueio aberto há mais tempo' },
-                  { key: 'kpi_avg_active', label: 'Tempo médio dos ativos', desc: 'Média de duração dos bloqueios atualmente ativos' },
-                  { key: 'kpi_avg_closed', label: 'Duração média (encerrados)', desc: 'Média de tempo dos bloqueios finalizados no período selecionado' },
-                  { key: 'kpi_period_total', label: 'Total no período / histórico', desc: 'Quantidade de bloqueios registrados no período e no histórico geral' },
+                  { key: 'kpi_active', label: t('dashboard.kpi_active_now', 'Bloqueios ativos agora'), desc: t('fields.kpi_active_desc', 'Contagem dos bloqueios que estão abertos no momento') },
+                  { key: 'kpi_active_equipment', label: t('dashboard.kpi_blocked_equip', 'Equipamentos bloqueados'), desc: t('fields.kpi_active_equipment_desc', 'Quantidade de equipamentos únicos com bloqueios ativos') },
+                  { key: 'kpi_oldest_active', label: t('dashboard.kpi_oldest_active', 'Bloqueio ativo mais antigo'), desc: t('fields.kpi_oldest_active_desc', 'Duração em horas/dias do bloqueio aberto há mais tempo') },
+                  { key: 'kpi_avg_active', label: t('dashboard.kpi_avg_active', 'Tempo médio dos ativos'), desc: t('fields.kpi_avg_active_desc', 'Média de duração dos bloqueios atualmente ativos') },
+                  { key: 'kpi_avg_closed', label: t('dashboard.kpi_avg_closed', 'Duração média (encerrados)'), desc: t('fields.kpi_avg_closed_desc', 'Média de tempo dos bloqueios finalizados no período selecionado') },
+                  { key: 'kpi_period_total', label: t('dashboard.kpi_period_locks', 'Total no período / histórico'), desc: t('fields.kpi_period_total_desc', 'Quantidade de bloqueios registrados no período e no histórico geral') },
                 ].map((item) => (
                   <label key={item.key} className={`choice ${dashboardCfg[item.key] !== false ? 'on' : ''}`}>
                     <input type="checkbox" checked={dashboardCfg[item.key] !== false} onChange={() => toggleDashboard(item.key)} />
@@ -114,17 +116,17 @@ export default function Fields() {
             </section>
 
             <section className="card">
-              <h2>Métricas e gráficos do Dashboard</h2>
-              <p className="muted">Ative ou desative os gráficos e tabelas analíticas exibidos no Dashboard.</p>
+              <h2>{t('fields.dashboard_metrics_title', 'Métricas e gráficos do Dashboard')}</h2>
+              <p className="muted">{t('fields.dashboard_metrics_desc', 'Ative ou desative os gráficos e tabelas analíticas exibidos no Dashboard.')}</p>
               <div className="choice-list">
                 {[
-                  { key: 'chart_by_group', label: 'Bloqueios por setor / grupo', desc: 'Gráfico de barras com bloqueios ativos e total por área ou grupo' },
-                  { key: 'chart_by_month', label: 'Bloqueios por mês', desc: 'Gráfico de colunas com a evolução mensal de bloqueios' },
-                  { key: 'chart_avg_by_group', label: 'Duração média por setor / grupo', desc: 'Gráfico de barras com a média de tempo dos bloqueios por área ou grupo' },
-                  { key: 'chart_by_user', label: 'Quem mais bloqueou', desc: 'Ranking de operadores que mais efetuaram bloqueios' },
-                  { key: 'chart_top_equipment', label: 'Equipamentos mais bloqueados', desc: 'Ranking de equipamentos com maior incidência de bloqueio' },
-                  { key: 'chart_recurrence', label: 'Reincidência de bloqueios', desc: 'Equipamentos que tiveram novos bloqueios dentro do prazo de reincidência' },
-                  { key: 'chart_oldest_active', label: 'Tabela: Ativos há mais tempo', desc: 'Lista detalhada com os bloqueios ativos mais antigos' },
+                  { key: 'chart_by_group', label: t('fields.chart_by_group_label', 'Bloqueios por setor / grupo'), desc: t('fields.chart_by_group_desc', 'Gráfico de barras com bloqueios ativos e total por área ou grupo') },
+                  { key: 'chart_by_month', label: t('dashboard.chart_by_month', 'Bloqueios por mês'), desc: t('fields.chart_by_month_desc', 'Gráfico de colunas com a evolução mensal de bloqueios') },
+                  { key: 'chart_avg_by_group', label: t('fields.chart_avg_by_group_label', 'Duração média por setor / grupo'), desc: t('fields.chart_avg_by_group_desc', 'Gráfico de barras com a média de tempo dos bloqueios por área ou grupo') },
+                  { key: 'chart_by_user', label: t('dashboard.chart_top_users', 'Quem mais bloqueou'), desc: t('fields.chart_by_user_desc', 'Ranking de operadores que mais efetuaram bloqueios') },
+                  { key: 'chart_top_equipment', label: t('dashboard.chart_top_equipment', 'Equipamentos mais bloqueados'), desc: t('fields.chart_top_equipment_desc', 'Ranking de equipamentos com maior incidência de bloqueio') },
+                  { key: 'chart_recurrence', label: t('fields.chart_recurrence_label', 'Reincidência de bloqueios'), desc: t('fields.chart_recurrence_desc', 'Equipamentos que tiveram novos bloqueios dentro do prazo de reincidência') },
+                  { key: 'chart_oldest_active', label: t('fields.chart_oldest_active_label', 'Tabela: Ativos há mais tempo'), desc: t('fields.chart_oldest_active_desc', 'Lista detalhada com os bloqueios ativos mais antigos') },
                 ].map((item) => (
                   <label key={item.key} className={`choice ${dashboardCfg[item.key] !== false ? 'on' : ''}`}>
                     <input type="checkbox" checked={dashboardCfg[item.key] !== false} onChange={() => toggleDashboard(item.key)} />

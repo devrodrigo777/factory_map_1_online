@@ -1,15 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { api, getCompanyFromPath } from '../api.js';
+import { api } from '../api.js';
+import { useTranslation } from '../i18n/I18nContext.jsx';
 
 const AuthContext = createContext(null);
 export const useAuth = () => useContext(AuthContext);
-const LEVEL = { viewer: 1, operator: 2, admin: 3, globaladmin: 4 };
+const LEVEL = { viewer: 1, operator: 2, admin: 3 };
 
 export function AuthProvider({ children }) {
-  const location = useLocation();
-  const currentCompany = getCompanyFromPath(location.pathname);
-  const [state, setState] = useState({ loading: true, user: null, config: { setup_needed: false, public_view: false, company: null }, error: false });
+  const [state, setState] = useState({ loading: true, user: null, config: { setup_needed: false, public_view: false }, error: false });
 
   const refresh = useCallback(async () => {
     try {
@@ -20,7 +19,7 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  useEffect(() => { refresh(); }, [refresh, currentCompany]);
+  useEffect(() => { refresh(); }, [refresh]);
 
   // sessão expirada em qualquer chamada: volta para o login
   useEffect(() => {
@@ -32,12 +31,7 @@ export function AuthProvider({ children }) {
   const value = useMemo(() => ({
     ...state,
     refresh,
-    isGlobalAdmin: state.user?.role === 'globaladmin',
     can: (role) => !!state.user && LEVEL[state.user.role] >= LEVEL[role],
-    selectCompany: async (id) => {
-      await api.selectCompany(id);
-      await refresh();
-    },
     login: async (username, password, captcha, captcha_token) => {
       const { user } = await api.login(username, password, captcha, captcha_token);
       setState((s) => ({ ...s, user }));
@@ -59,14 +53,15 @@ export function AuthProvider({ children }) {
 // Rota protegida. publicOk: pode abrir sem login quando a "visão pública" está ligada.
 export function Protected({ min = 'viewer', publicOk = false, children }) {
   const { loading, error, user, config, can, refresh } = useAuth();
+  const { t } = useTranslation();
   const loc = useLocation();
-  if (loading) return <div className="center-screen"><div className="spinner" role="status" aria-label="Carregando" /></div>;
+  if (loading) return <div className="center-screen"><div className="spinner" role="status" aria-label={t('viewer.loading', 'Carregando')} /></div>;
   if (error) {
     return (
       <div className="center-screen">
-        <h1>Servidor indisponível</h1>
-        <p>Não foi possível falar com o servidor. Verifique se ele está em execução.</p>
-        <button className="btn primary" onClick={refresh}>Tentar novamente</button>
+        <h1>{t('viewer.server_unavailable', 'Servidor indisponível')}</h1>
+        <p>{t('auth.server_unavailable_desc', 'Não foi possível falar com o servidor. Verifique se ele está em execução.')}</p>
+        <button className="btn primary" onClick={refresh}>{t('viewer.try_again', 'Tentar novamente')}</button>
       </div>
     );
   }

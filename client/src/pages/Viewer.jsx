@@ -320,14 +320,14 @@ export default function Viewer() {
 
   // ---------- estados vazios ----------
   if (status === 'loading') {
-    return <div className="center-screen"><div className="spinner" role="status" aria-label="Carregando" /></div>;
+    return <div className="center-screen"><div className="spinner" role="status" aria-label={t('viewer.loading', 'Carregando')} /></div>;
   }
   if (status === 'error') {
     return (
       <div className="center-screen">
-        <h1>Servidor indisponível</h1>
-        <p>Não foi possível carregar o mapa. Verifique se o servidor está em execução.</p>
-        <button className="btn primary" onClick={loadRoot}>Tentar novamente</button>
+        <h1>{t('viewer.server_unavailable', 'Servidor indisponível')}</h1>
+        <p>{t('viewer.server_unavailable_desc', 'Não foi possível carregar o mapa. Verifique se o servidor está em execução.')}</p>
+        <button className="btn primary" onClick={loadRoot}>{t('viewer.try_again', 'Tentar novamente')}</button>
       </div>
     );
   }
@@ -383,7 +383,10 @@ export default function Viewer() {
         const color = locks.stages?.length ? stageFor(locks.areas[a.id].oldest_hours ?? 0, locks.stages).color : undefined;
         return (
           <LockMarker key={`lock-${a.id}`} x={cx} y={cy - dy} k={k} count={count} color={color}
-            label={`${count} ${count === 1 ? 'bloqueio ativo' : 'bloqueios ativos'} em ${a.name ? td(dynamicAreaKey(a.id, 'name', a.name), a.name) : 'área'}`}
+            label={t(count === 1 ? 'viewer.lock_marker_singular' : 'viewer.lock_marker_plural', {
+              count,
+              area: a.name ? td(dynamicAreaKey(a.id, 'name', a.name), a.name) : t('viewer.area_without_name', 'Área sem nome'),
+            })}
             onOpen={() => phase === 'idle' && showLockPanel(a)} />
         );
       })}
@@ -396,11 +399,11 @@ export default function Viewer() {
     <div className="viewer">
       <header className="topbar">
         {stack.length > 0 && (
-          <button className="btn icon" onClick={() => goBack(stack.length - 1)} aria-label="Voltar um nível">
+          <button className="btn icon" onClick={() => goBack(stack.length - 1)} aria-label={t('viewer.back_one_level', 'Voltar um nível')}>
             <Icon name="back" />
           </button>
         )}
-        <nav className="crumbs" aria-label="Localização">
+        <nav className="crumbs" aria-label={t('viewer.location', 'Localização')}>
           {crumbs.map((c, i) => (
             <span key={i} className="crumb">
               {c.index === null ? (
@@ -413,9 +416,9 @@ export default function Viewer() {
         </nav>
         <div className="spacer" />
         {locks && (
-          <Link className={`chip ${locks.active_total ? 'alert' : ''}`} to={user ? '/dashboard' : '/login'} title={user ? 'Abrir dashboard' : 'Entrar'}>
+          <Link className={`chip ${locks.active_total ? 'alert' : ''}`} to={user ? '/dashboard' : '/login'} title={user ? t('viewer.open_dashboard', 'Abrir dashboard') : t('nav.login', 'Entrar')}>
             <Icon name="lock" size={16} />
-            <span>{locks.active_total} {locks.active_total === 1 ? 'bloqueio ativo' : 'bloqueios ativos'}</span>
+            <span>{t(locks.active_total === 1 ? 'viewer.active_locks_chip_singular' : 'viewer.active_locks_chip_plural', { count: locks.active_total })}</span>
           </Link>
         )}
         {presButtonEnabled && (
@@ -434,7 +437,7 @@ export default function Viewer() {
           </button>
         )}
         {user && <Link className="btn icon" to="/dashboard" aria-label={t('nav.dashboard', 'Dashboard')}><Icon name="chart" /></Link>}
-        {can('operator') && <Link className="btn icon" to={can('admin') ? '/admin' : '/records'} aria-label="Gestão"><Icon name="gear" /></Link>}
+        {can('operator') && <Link className="btn icon" to={can('admin') ? '/admin' : '/records'} aria-label={t('viewer.management', 'Gestão')}><Icon name="gear" /></Link>}
         <LanguageSelector />
         <UserMenu />
       </header>
@@ -466,22 +469,22 @@ export default function Viewer() {
         />
 
         {locks?.stages?.length > 1 && locks.active_total > 0 && (
-          <ul className="lock-legend" aria-label="Cor do cadeado pela idade do bloqueio">
+          <ul className="lock-legend" aria-label={t('viewer.lock_legend', 'Cor do cadeado pela idade do bloqueio')}>
             {locks.stages.map((s) => (<li key={s.min_hours}><i style={{ background: s.color }} />{s.label}</li>))}
           </ul>
         )}
 
         {selected && !panel && (
           <aside className="info" key={selected.id}>
-            <button className="btn icon ghost info-close" onClick={() => { setSelected(null); setHighlightAreaId(null); }} aria-label="Fechar">
+            <button className="btn icon ghost info-close" onClick={() => { setSelected(null); setHighlightAreaId(null); }} aria-label={t('common.close', 'Fechar')}>
               <Icon name="close" />
             </button>
             <span className="swatch" style={{ background: selected.color }} />
-            <h2>{selected.name || 'Área sem nome'}</h2>
+            <h2>{selected.name || t('viewer.area_without_name', 'Área sem nome')}</h2>
             {selected.code && <p className="code">{selected.code}</p>}
             {selected.description && <p>{selected.description}</p>}
             {selected.show_lock && (
-              <button className="btn" onClick={() => showLockPanel(selected, true)}><Icon name="lock" size={16} /> Ver bloqueios e histórico</button>
+              <button className="btn" onClick={() => showLockPanel(selected, true)}><Icon name="lock" size={16} /> {t('viewer.view_locks_history', 'Ver bloqueios e histórico')}</button>
             )}
           </aside>
         )}
@@ -520,8 +523,8 @@ export default function Viewer() {
 
       {tip && (
         <div className="tooltip" style={{ left: tip.x + 16, top: tip.y + 16 }}>
-          <strong>{tip.area.name ? td(dynamicAreaKey(tip.area.id, 'name', tip.area.name), tip.area.name) : 'Área sem nome'}</strong>
-          {tip.area.target_map_id && <span>Clique para ver o detalhe</span>}
+          <strong>{tip.area.name ? td(dynamicAreaKey(tip.area.id, 'name', tip.area.name), tip.area.name) : t('viewer.area_without_name', 'Área sem nome')}</strong>
+          {tip.area.target_map_id && <span>{t('viewer.click_detail', 'Clique para ver o detalhe')}</span>}
         </div>
       )}
     </div>
@@ -565,7 +568,7 @@ function PresentationPanel({ area, lockCount, durationSeconds = 10, onSelect, zo
   const pct = Math.min(100, Math.max(0, (timeLeft / durationSeconds) * 100));
 
   return (
-    <aside className="presentation-panel" onClick={onSelect} title="Toque ou clique para abrir detalhes deste cadeado">
+    <aside className="presentation-panel" onClick={onSelect} title={t('viewer.presentation_interact', 'Toque ou clique para abrir detalhes deste cadeado')}>
       <div className="presentation-top">
         <div className="presentation-badge-row">
           <span className="presentation-badge">
@@ -618,8 +621,8 @@ function PresentationPanel({ area, lockCount, durationSeconds = 10, onSelect, zo
                       {equipKey
                         ? (r.values[equipKey]
                           ? td(dynamicRecordKey(equipKey, r.values[equipKey]), r.values[equipKey])
-                          : `Reg #${r.id}`)
-                        : `Reg #${r.id}`}
+                          : t('viewer.record_fallback', { id: r.id }))
+                        : t('viewer.record_fallback', { id: r.id })}
                     </strong>
                     {(r.t0 != null || r.created_at) && (
                       <small className="pres-summary-date">
