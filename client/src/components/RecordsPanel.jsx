@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api.js';
 import Icon from './Icons.jsx';
 import AreaHistory from './AreaHistory.jsx';
@@ -17,6 +17,8 @@ export default function RecordsPanel({ areaId, refreshKey, initialHistory = fals
   const [error, setError] = useState('');
   const [lightbox, setLightbox] = useState(null); // { title, urls }
   const [expandedCards, setExpandedCards] = useState(() => new Set());
+  const [currentCard, setCurrentCard] = useState(0);
+  const carouselRef = useRef(null);
 
   useEffect(() => {
     let stop = false;
@@ -38,6 +40,21 @@ export default function RecordsPanel({ areaId, refreshKey, initialHistory = fals
     const tB = b.t0 != null ? b.t0 : (b.created_at ? Date.parse(b.created_at) : b.id);
     return tB - tA;
   });
+
+  useEffect(() => {
+    setCurrentCard(0);
+    if (carouselRef.current) carouselRef.current.scrollLeft = 0;
+  }, [areaId, history, sortedRows.length]);
+
+  const handleCarouselScroll = (e) => {
+    const carousel = e.currentTarget;
+    if (carousel.clientWidth > 0) {
+      setCurrentCard(Math.max(
+        0,
+        Math.min(sortedRows.length - 1, Math.round(carousel.scrollLeft / carousel.clientWidth))
+      ));
+    }
+  };
 
   const toggleCardExpand = (id) => {
     setExpandedCards((prev) => {
@@ -128,44 +145,63 @@ export default function RecordsPanel({ areaId, refreshKey, initialHistory = fals
         {data && !data.error && sortedRows.length === 0 && (
           <p className="muted empty">{history ? t('records_panel.empty_for_area', 'Nenhum registro para esta área.') : t('records_panel.all_clear_area', 'Tudo liberado nesta área.')}</p>
         )}
-        {sortedRows.map((r) => {
-          const isExpanded = expandedCards.has(r.id);
-          return (
-            <article key={r.id} className={`lock-card ${r.active ? 'on' : 'off'}`}
-              style={r.active && stages.length ? { borderLeftColor: stageFor(r.hours, stages).color } : undefined}>
-              <header>
-                <strong>
-                  {titleKey
-                    ? td(dynamicRecordKey(titleKey, r.values[titleKey]), formatValue('text', r.values[titleKey]))
-                    : `Registro ${r.id}`}
-                </strong>
-                <span className={`badge ${r.active ? 'on' : 'off'}`}
-                  style={r.active && stages.length ? { background: stageFor(r.hours, stages).color, color: '#fff' } : undefined}>
-                  {r.active ? `${t('viewer.active_for', 'Ativo há')} ${formatHours(r.hours)}` : `${t('viewer.closed_badge', 'Encerrado')} · ${formatHours(r.hours)}`}
-                </span>
-              </header>
-              <dl>
-                {primaryFields.map((f) => renderField(f, r))}
-                {hasActiveSeparator && isExpanded && (
-                  collapsedFields.map((f) => renderField(f, r))
+        <div className="lock-card-carousel" ref={carouselRef} onScroll={handleCarouselScroll}>
+          {sortedRows.map((r) => {
+            const isExpanded = expandedCards.has(r.id);
+            return (
+              <article key={r.id} className={`lock-card ${r.active ? 'on' : 'off'}`}
+                style={r.active && stages.length ? { borderLeftColor: stageFor(r.hours, stages).color } : undefined}>
+                <header>
+                  <strong>
+                    {titleKey
+                      ? td(dynamicRecordKey(titleKey, r.values[titleKey]), formatValue('text', r.values[titleKey]))
+                      : `Registro ${r.id}`}
+                  </strong>
+                  <span className={`badge ${r.active ? 'on' : 'off'}`}
+                    style={r.active && stages.length ? { background: stageFor(r.hours, stages).color, color: '#fff' } : undefined}>
+                    {r.active ? `${t('viewer.active_for', 'Ativo há')} ${formatHours(r.hours)}` : `${t('viewer.closed_badge', 'Encerrado')} · ${formatHours(r.hours)}`}
+                  </span>
+                </header>
+                <dl>
+                  {primaryFields.map((f) => renderField(f, r))}
+                  {hasActiveSeparator && isExpanded && (
+                    collapsedFields.map((f) => renderField(f, r))
+                  )}
+                </dl>
+                {hasActiveSeparator && (
+                  <button
+                    type="button"
+                    className="lock-card-toggle-btn"
+                    onClick={() => toggleCardExpand(r.id)}
+                    title={isExpanded ? t('records_panel.collapse_info', 'Contrair informações') : t('records_panel.expand_info', 'Expandir mais informações')}
+                    aria-expanded={isExpanded}
+                    aria-label={isExpanded ? t('records_panel.collapse_info', 'Contrair informações') : t('records_panel.expand_info', 'Expandir mais informações')}
+                  >
+                    <Icon name={isExpanded ? 'chevronUp' : 'chevronDown'} size={18} />
+                  </button>
                 )}
-              </dl>
-              {hasActiveSeparator && (
-                <button
-                  type="button"
-                  className="lock-card-toggle-btn"
-                  onClick={() => toggleCardExpand(r.id)}
-                  title={isExpanded ? t('records_panel.collapse_info', 'Contrair informações') : t('records_panel.expand_info', 'Expandir mais informações')}
-                  aria-expanded={isExpanded}
-                  aria-label={isExpanded ? t('records_panel.collapse_info', 'Contrair informações') : t('records_panel.expand_info', 'Expandir mais informações')}
-                >
-                  <Icon name={isExpanded ? 'chevronUp' : 'chevronDown'} size={18} />
-                </button>
-              )}
-            </article>
-          );
-        })}
+              </article>
+            );
+          })}
+        </div>
       </div>
+      {sortedRows.length > 0 && (
+        <div className="lock-card-position">
+          <span role="status" aria-live="polite">
+            {t('records_panel.carousel_position', { current: currentCard + 1, total: sortedRows.length })}
+          </span>
+          <div
+            className="lock-card-progress"
+            role="progressbar"
+            aria-valuemin={1}
+            aria-valuemax={sortedRows.length}
+            aria-valuenow={currentCard + 1}
+            aria-label={t('records_panel.carousel_progress', 'Posição do bloqueio')}
+          >
+            <span style={{ width: `${((currentCard + 1) / sortedRows.length) * 100}%` }} />
+          </div>
+        </div>
+      )}
       </>
       )}
       {lightbox && (
